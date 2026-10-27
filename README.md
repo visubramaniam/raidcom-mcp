@@ -63,6 +63,18 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
+### Claude Desktop, standalone packages
+
+Each [release](https://github.com/visubramaniam/raidcom-mcp/releases) has a Claude Desktop extension (`.mcpb`), standalone packages for macOS, Linux and Windows with Node.js bundled, the npm package, and a skill zip. See [INSTALL.md](INSTALL.md).
+
+### Claude Code plugin
+
+```
+/plugin install raidcom-community --marketplace visubramaniam/raidcom-mcp
+```
+
+See [README.plugin.md](README.plugin.md).
+
 ### Hosted over HTTP
 
 ```

@@ -2,8 +2,12 @@
 
 ## Unreleased
 
+## 0.1.1 — 2026-10-26
+
 ### Added
 
+- **More release packages.** Every release now also has a Claude Desktop extension (`.mcpb`), standalone packages for macOS, Linux and Windows (x64 and arm64) with a Node.js runtime bundled, and a zip of the `raidcom-command-builder` skill, besides the npm package and the Docker image. `SHA256SUMS` covers them all. The Windows packages are tested on Windows x64 and arm64 machines. CI builds the Desktop extension, the skill zip and the Linux x64 standalone package on every pull request and smoke-tests them. INSTALL.md has a section for each.
+- **Claude Code plugin `raidcom-community`** (`plugin/`, listed by `.claude-plugin/marketplace.json`; see README.plugin.md). It installs the server from a pinned npm version and adds the `raidcom-command-builder` skill. It needs no settings. The Plugin release workflow opens a pull request that moves the plugin to each new server release (including the lockfile), and tags `plugin-v<version>` and creates a GitHub release with the plugin zip when that pull request is merged.
 - **Security scanning in CI.** CodeQL (security-extended queries) runs on every pull request, push to `main` and weekly. Dependency review fails a pull request that adds a vulnerable dependency. A Security audit workflow runs `npm audit` on the runtime dependencies and a Trivy scan of the Docker image on pull requests that touch dependencies or the Dockerfile, and weekly.
 - **Recipe `create-mainframe-pool`:** creates a mainframe parity group (always `-emulation 3390-V`, not a parameter), assigns an SSID, creates and quick-formats 3390 LDEVs and makes them a DP pool, with `HORCC_DRIVEOPERATION=1` exported at the top of the script. Recipes can now export environment variables (`env`).
 - **CU:LDEV notation** (`dd:0f`) is accepted for LDEV IDs and range-checked, and ranges such as `dd:00-dd:0f` expand in recipes and scripts.

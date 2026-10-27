@@ -1,0 +1,41 @@
+{
+  "manifest_version": "0.2",
+  "name": "raidcom-mcp",
+  "display_name": "Hitachi raidcom command builder (Community)",
+  "version": "0.0.0",
+  "description": "Community MCP server that builds and validates Hitachi raidcom commands and scripts from plain-language requests. Build-only.",
+  "long_description": "Turns a storage task into validated raidcom commands and scripts: it finds the right command, checks every option against the manual's syntax and the storage model's limits, and returns text for you to review and run on a host with CCI installed. It never connects to a storage system and needs no credentials or settings. This is a community project, not an official Hitachi Vantara product.",
+  "author": {
+    "name": "Vinod Subramaniam"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/visubramaniam/raidcom-mcp"
+  },
+  "homepage": "https://github.com/visubramaniam/raidcom-mcp",
+  "documentation": "https://github.com/visubramaniam/raidcom-mcp#readme",
+  "license": "MIT",
+  "keywords": ["hitachi", "raidcom", "cci", "storage", "vsp"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"]
+    }
+  },
+  "tools": [
+    { "name": "raidcom_list_commands", "description": "Find raidcom commands from a question in plain words." },
+    { "name": "raidcom_describe_command", "description": "Show a command's syntax forms, options and examples." },
+    { "name": "raidcom_build_command", "description": "Build and validate one raidcom command." },
+    { "name": "raidcom_check_command", "description": "Check and explain an existing raidcom command line." },
+    { "name": "raidcom_build_script", "description": "Build a validated shell script from steps, with ranges." },
+    { "name": "raidcom_list_recipes", "description": "List ready-made workflows such as provisioning and pool creation." },
+    { "name": "raidcom_build_recipe", "description": "Build the script for a ready-made workflow." },
+    { "name": "raidcom_model_limits", "description": "Show valid ID and port ranges for a storage model." }
+  ],
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": { "node": ">=22.19.0" }
+  }
+}

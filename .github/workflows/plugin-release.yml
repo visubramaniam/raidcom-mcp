@@ -1,0 +1,116 @@
+name: Plugin release
+
+# Keeps the Claude Code plugin (plugin/) in step with the server and publishes it.
+#
+# bump:    after a Release workflow succeeds (the server is on npm), opens a pull request that moves the plugin to that
+#          version: plugin.json, plugin/package.json and the lockfile with integrity hashes. The plugin trails the
+#          server by one release because its lockfile can only name a version that is already on npm.
+# release: when a push to main changes the plugin's version, tags plugin-v<version> and creates a GitHub release with
+#          the plugin as a zip. Merging the bump pull request is therefore what releases the plugin.
+#
+# The bump job pushes its branch and opens the pull request with the PLUGIN_PR_TOKEN secret (a personal access token
+# with Contents and Pull requests write access to this repository), because pull requests opened with the workflow's
+# own token don't start CI. Without the secret it falls back to the workflow token, which needs the setting "Allow
+# GitHub Actions to create and approve pull requests" (Settings → Actions → General); close and reopen the pull request
+# to run CI on it.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Server version to move the plugin to, e.g. 0.1.1 (empty for the latest release)
+        required: false
+  push:
+    branches: [main]
+    paths:
+      - plugin/**
+      - .claude-plugin/**
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.PLUGIN_PR_TOKEN || github.token }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Work out the version
+        id: v
+        env:
+          GH_TOKEN: ${{ secrets.PLUGIN_PR_TOKEN || github.token }}
+          INPUT: ${{ inputs.version }}
+        run: |
+          version="$INPUT"
+          if [ -z "$version" ]; then version=$(gh release view --json tagName --jq .tagName | sed 's/^v//'); fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          current=$(node -p 'require("./plugin/package.json").dependencies["raidcom-mcp"]')
+          if [ "$current" = "$version" ]; then echo "plugin already at $version"; echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Wait for the version on npm
+        if: steps.v.outputs.skip != 'true'
+        run: |
+          for i in $(seq 1 40); do
+            npm view "raidcom-mcp@${{ steps.v.outputs.version }}" version >/dev/null 2>&1 && exit 0
+            sleep 15
+          done
+          echo "::error::raidcom-mcp@${{ steps.v.outputs.version }} is not on npm yet (see the npm job of the Release workflow)"
+          exit 1
+      - name: Move the plugin and open a pull request
+        if: steps.v.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.PLUGIN_PR_TOKEN || github.token }}
+          HAS_PAT: ${{ secrets.PLUGIN_PR_TOKEN != '' }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          if [ "$HAS_PAT" != "true" ]; then echo "::warning::PLUGIN_PR_TOKEN is not set; using the workflow token, so CI will not start on the pull request until it is closed and reopened"; fi
+          node -e '
+            const fs = require("fs"), v = process.env.VERSION;
+            for (const [f, edit] of [
+              ["plugin/.claude-plugin/plugin.json", (j) => { j.version = v; }],
+              ["plugin/package.json", (j) => { j.version = v; j.dependencies["raidcom-mcp"] = v; }],
+            ]) { const j = JSON.parse(fs.readFileSync(f, "utf8")); edit(j); fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n"); }
+          '
+          (cd plugin && npm install --package-lock-only --ignore-scripts --no-audit --no-fund)
+          branch="plugin-$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add plugin
+          git commit -m "Move the raidcom-community plugin to raidcom-mcp $VERSION"
+          git push --force origin "$branch"
+          gh pr create --base main --head "$branch" --title "Move the raidcom-community plugin to raidcom-mcp $VERSION" \
+            --body "Moves the plugin to raidcom-mcp $VERSION: \`plugin.json\`, \`plugin/package.json\` and the lockfile. Merging this releases plugin-v$VERSION." \
+            || gh pr edit "$branch" --title "Move the raidcom-community plugin to raidcom-mcp $VERSION"
+
+  release:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Tag and release the plugin version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p 'require("./plugin/.claude-plugin/plugin.json").version')
+          tag="plugin-v$version"
+          if gh release view "$tag" >/dev/null 2>&1; then echo "$tag is already released"; exit 0; fi
+          # the lockfile is what pins the server, so a release without one is not ready
+          if [ ! -f plugin/package-lock.json ]; then echo "::notice::plugin/package-lock.json is missing; not releasing $tag until the bump pull request has added it"; exit 0; fi
+          mkdir -p dist-plugin
+          (cd plugin && zip -qr "../dist-plugin/raidcom-community-plugin-$version.zip" . -x 'node_modules/*')
+          (cd dist-plugin && sha256sum *.zip > SHA256SUMS)
+          gh release create "$tag" --target "$GITHUB_SHA" --title "raidcom-community plugin $version" \
+            --notes "Claude Code plugin for raidcom-mcp $version. Install: \`/plugin install raidcom-community --marketplace visubramaniam/raidcom-mcp\`. See README.plugin.md." \
+            dist-plugin/*.zip dist-plugin/SHA256SUMS

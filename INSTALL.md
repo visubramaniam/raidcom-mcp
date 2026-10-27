@@ -2,9 +2,88 @@
 
 raidcom-mcp only builds command text. It needs no access to a storage system, no credentials and no CCI installation.
 
-## Requirements
+## Choose an install method
 
-Node.js 22.19 or later (`node --version`), or Docker.
+Every release on GitHub has these files, with `SHA256SUMS` to check them:
+
+| You use | Install with | Needs Node.js? |
+|---|---|---|
+| Claude Desktop | the [`.mcpb` extension](#claude-desktop-extension-mcpb) | No (Claude Desktop brings its own) |
+| Claude Code | the [plugin](#claude-code-plugin) | Yes, 22.19 or later |
+| Any MCP client, no Node.js installed | a [standalone package](#standalone-package) | No |
+| Any MCP client, with Node.js | the [npm package](#from-the-npm-package) or [from source](#from-source) | Yes, 22.19 or later |
+| A server for others to use | [Docker](#docker) or [HTTP](#run-over-http) | No |
+
+### Verify your download
+
+```bash
+sha256sum -c SHA256SUMS --ignore-missing
+```
+
+On macOS, use `shasum -a 256 -c SHA256SUMS --ignore-missing`; on Windows, compare `Get-FileHash <file>` with the line in `SHA256SUMS`.
+
+## Claude Desktop extension (.mcpb)
+
+1. Download `raidcom-mcp-<version>.mcpb`.
+2. Open it, either by double-clicking it or by dragging it onto Claude Desktop.
+3. Click **Install**, then enable the extension. There are no settings to fill in.
+
+The extension runs with the Node.js built into Claude Desktop. To remove it, go to **Settings → Extensions**.
+
+### Add the command-builder skill (optional)
+
+The `raidcom-command-builder` skill guides Claude through finding a command, building it, and showing it with its warnings. The Claude Code plugin includes it. For Claude Desktop or claude.ai, download `raidcom-command-builder-<version>.zip` from the same release (don't unzip it) and upload it under **Settings → Capabilities → Skills**. Skills need a Pro, Max, Team or Enterprise plan with code execution turned on.
+
+## Standalone package
+
+Each standalone package contains the server and its own Node.js runtime:
+
+| System | Package |
+|---|---|
+| macOS, Apple silicon | `raidcom-mcp-<version>-darwin-arm64.tar.gz` |
+| macOS, Intel | `raidcom-mcp-<version>-darwin-x64.tar.gz` |
+| Linux, x64 | `raidcom-mcp-<version>-linux-x64.tar.gz` |
+| Linux, arm64 | `raidcom-mcp-<version>-linux-arm64.tar.gz` |
+| Windows, x64 | `raidcom-mcp-<version>-win-x64.zip` |
+| Windows, arm64 | `raidcom-mcp-<version>-win-arm64.zip` |
+
+The Linux packages need glibc 2.28 or later (RHEL/Rocky 8+, Debian 10+, Ubuntu 20.04+). On Alpine Linux, use [Docker](#docker) or the npm package.
+
+### macOS and Linux
+
+```bash
+sudo tar -xzf raidcom-mcp-<version>-linux-x64.tar.gz -C /opt
+sudo ln -sf /opt/raidcom-mcp-<version>-linux-x64/bin/raidcom-mcp /usr/local/bin/raidcom-mcp
+```
+
+The server command is then `/usr/local/bin/raidcom-mcp`. The launcher follows the symlink to find its runtime.
+
+### Windows
+
+Unzip the archive to a folder such as `C:\Program Files\raidcom-mcp`. The server is started by its bundled `runtime\node.exe` running `dist\index.js`:
+
+```powershell
+& "C:\Program Files\raidcom-mcp\raidcom-mcp-<version>-win-x64\runtime\node.exe" "C:\Program Files\raidcom-mcp\raidcom-mcp-<version>-win-x64\dist\index.js"
+```
+
+From a Command Prompt you can also run `bin\raidcom-mcp.cmd`. In MCP client configs use `node.exe` and `index.js` as shown above, because clients often can't start `.cmd` files directly.
+
+## Claude Code plugin
+
+```
+/plugin install raidcom-community --marketplace visubramaniam/raidcom-mcp
+```
+
+See [README.plugin.md](README.plugin.md).
+
+## From the npm package
+
+```bash
+npm install -g raidcom-mcp
+raidcom-mcp          # MCP over stdio
+```
+
+Requires Node.js 22.19 or later (`node --version`).
 
 ## From source
 

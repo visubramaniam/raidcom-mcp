@@ -1,0 +1,17 @@
+{
+  "name": "raidcom-community",
+  "owner": {
+    "name": "Vinod Subramaniam",
+    "url": "https://github.com/visubramaniam"
+  },
+  "metadata": {
+    "description": "Community MCP server that builds Hitachi raidcom commands, as a Claude plugin. Not an official Hitachi Vantara product."
+  },
+  "plugins": [
+    {
+      "name": "raidcom-community",
+      "source": "./plugin",
+      "description": "Build and validate Hitachi raidcom commands and scripts from plain-language requests. Build-only: nothing is run on a storage system."
+    }
+  ]
+}

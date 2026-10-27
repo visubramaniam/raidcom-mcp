@@ -1,0 +1,236 @@
+{
+  "_source": "Valid parameter ranges from the appendices of the CCI Command Reference (VSP One Block, VSP 5000 series, VSP E series). Only what the appendices state is encoded.",
+  "models": {
+    "generic": {
+      "label": "Any model (the widest range of any supported model)",
+      "serial": [
+        100000,
+        899999
+      ],
+      "ldev": [
+        0,
+        65279
+      ],
+      "pool": [
+        0,
+        127
+      ],
+      "lun": [
+        0,
+        4095
+      ],
+      "portColumns": "123456789ABC",
+      "portLetters": "ABCDEFGHJKLMNPQR"
+    },
+    "vsp-one-b24": {
+      "label": "VSP One Block 24",
+      "aliases": [
+        "b24",
+        "vsp one b24",
+        "vsp one block 24"
+      ],
+      "serial": [
+        800000,
+        899999
+      ],
+      "ldev": [
+        0,
+        16383
+      ],
+      "pool": [
+        0,
+        63
+      ],
+      "lun": [
+        0,
+        2047
+      ],
+      "portColumns": "12345678",
+      "portLetters": "AD"
+    },
+    "vsp-one-b26": {
+      "label": "VSP One Block 26",
+      "aliases": [
+        "b26",
+        "vsp one b26",
+        "vsp one block 26"
+      ],
+      "serial": [
+        800000,
+        899999
+      ],
+      "ldev": [
+        0,
+        32767
+      ],
+      "pool": [
+        0,
+        63
+      ],
+      "lun": [
+        0,
+        2047
+      ],
+      "portColumns": "12345678",
+      "portLetters": "ABCD"
+    },
+    "vsp-one-b28": {
+      "label": "VSP One Block 28",
+      "aliases": [
+        "b28",
+        "vsp one b28",
+        "vsp one block 28"
+      ],
+      "serial": [
+        800000,
+        899999
+      ],
+      "ldev": [
+        0,
+        49151
+      ],
+      "pool": [
+        0,
+        63
+      ],
+      "lun": [
+        0,
+        2047
+      ],
+      "portColumns": "12345678",
+      "portLetters": "ABCD"
+    },
+    "vsp-5000": {
+      "label": "VSP 5000 series",
+      "aliases": [
+        "5000",
+        "5100",
+        "5200",
+        "5500",
+        "5600",
+        "vsp 5100",
+        "vsp 5200",
+        "vsp 5500",
+        "vsp 5600"
+      ],
+      "serial": [
+        500000,
+        599999
+      ],
+      "ldev": [
+        0,
+        65279
+      ],
+      "pool": [
+        0,
+        127
+      ],
+      "lun": [
+        0,
+        4095
+      ],
+      "portColumns": "123456789ABC",
+      "portLetters": "ABCDEFGHJKLMNPQR",
+      "portColumnsLimited": {
+        "cols": "9ABC",
+        "letters": "ABCDJKLM"
+      }
+    },
+    "vsp-e590": {
+      "label": "VSP E590",
+      "aliases": [
+        "e590"
+      ],
+      "serial": [
+        600000,
+        699999
+      ],
+      "ldev": [
+        0,
+        32767
+      ],
+      "pool": [
+        0,
+        63
+      ],
+      "lun": [
+        0,
+        2047
+      ],
+      "portColumns": "12345678",
+      "portLetters": "ABC"
+    },
+    "vsp-e790": {
+      "label": "VSP E790",
+      "aliases": [
+        "e790"
+      ],
+      "serial": [
+        600000,
+        699999
+      ],
+      "ldev": [
+        0,
+        49151
+      ],
+      "pool": [
+        0,
+        63
+      ],
+      "lun": [
+        0,
+        2047
+      ],
+      "portColumns": "12345678",
+      "portLetters": "ABC"
+    },
+    "vsp-e990": {
+      "label": "VSP E990",
+      "aliases": [
+        "e990"
+      ],
+      "serial": [
+        400000,
+        499999
+      ],
+      "ldev": [
+        0,
+        65279
+      ],
+      "pool": [
+        0,
+        127
+      ],
+      "lun": [
+        0,
+        2047
+      ],
+      "portColumns": "12345678",
+      "portLetters": "ABCDEFGHJKLM"
+    },
+    "vsp-e1090": {
+      "label": "VSP E1090",
+      "aliases": [
+        "e1090"
+      ],
+      "serial": [
+        700000,
+        799999
+      ],
+      "ldev": [
+        0,
+        65279
+      ],
+      "pool": [
+        0,
+        127
+      ],
+      "lun": [
+        0,
+        2047
+      ],
+      "portColumns": "12345678",
+      "portLetters": "ABCDEFGHJKLM"
+    }
+  }
+}

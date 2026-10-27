@@ -1,0 +1,390 @@
+{
+  "_comment": "Questions an operator might ask, per command. They bridge everyday wording and the manual's wording in search. Keys are command names; keys starting with _ are ignored.",
+  "add ldev": [
+    "create a volume",
+    "create a new ldev in a pool",
+    "create a dp volume",
+    "make a 100GB volume",
+    "provision a lun of 500 GB",
+    "carve a volume out of a parity group",
+    "create 10 volumes"
+  ],
+  "delete ldev": [
+    "delete a volume",
+    "remove an ldev",
+    "destroy a volume",
+    "free up an ldev id"
+  ],
+  "extend ldev": [
+    "grow a volume",
+    "make a volume bigger",
+    "expand a dp volume",
+    "increase the size of an ldev",
+    "resize a lun"
+  ],
+  "get ldev": [
+    "show a volume",
+    "show ldev details",
+    "list volumes",
+    "which volumes are in pool 0",
+    "show free ldev ids",
+    "list unmapped volumes",
+    "find undefined ldev numbers",
+    "how big is ldev 100",
+    "show ldev capacity"
+  ],
+  "initialize ldev": [
+    "format a volume",
+    "quick format an ldev",
+    "wipe a volume",
+    "stop formatting"
+  ],
+  "modify ldev": [
+    "rename a volume",
+    "set an ldev nickname",
+    "block an ldev",
+    "restore a blocked volume",
+    "make a volume a command device",
+    "reclaim zero pages",
+    "turn on capacity saving for a volume",
+    "change the mp blade of a volume",
+    "set the tiering policy of a volume",
+    "set qos on a volume",
+    "turn a volume into a command device",
+    "set the command device attribute on an ldev"
+  ],
+  "add lun": [
+    "map a volume to a host group",
+    "present a volume to a host",
+    "create an lu path",
+    "assign a lun to a host",
+    "give the server access to a volume",
+    "add a path to a volume",
+    "map ldev to a port"
+  ],
+  "delete lun": [
+    "unmap a volume from a host group",
+    "remove an lu path",
+    "take a volume away from a host",
+    "delete a lun path"
+  ],
+  "get lun": [
+    "show luns on a port",
+    "list volumes mapped to a host group",
+    "which volumes does the host see",
+    "show lu paths"
+  ],
+  "add host_grp": [
+    "create a host group",
+    "add a host group to a port",
+    "make a host group for a new server",
+    "create an iscsi target",
+    "rename a host group"
+  ],
+  "delete host_grp": [
+    "delete a host group",
+    "remove a host group from a port",
+    "remove an iscsi target"
+  ],
+  "get host_grp": [
+    "list host groups",
+    "show host groups on a port",
+    "show all host groups",
+    "find the host group id",
+    "which host groups exist"
+  ],
+  "modify host_grp": [
+    "set the host mode",
+    "change host mode options",
+    "set host mode for vmware",
+    "set host mode for linux",
+    "enable chap on a target"
+  ],
+  "add hba_wwn": [
+    "register a wwn",
+    "add a host wwpn to a host group",
+    "add an hba to a host group",
+    "register the server's wwpn"
+  ],
+  "delete hba_wwn": [
+    "remove a wwn from a host group",
+    "delete a host wwpn"
+  ],
+  "get hba_wwn": [
+    "show wwns in a host group",
+    "list the hbas registered to a host group",
+    "which wwpns are registered"
+  ],
+  "set hba_wwn": [
+    "give a wwn a nickname",
+    "name a wwpn"
+  ],
+  "add hba_iscsi": [
+    "register an iscsi initiator",
+    "add an iqn to a target",
+    "add an initiator name"
+  ],
+  "get hba_iscsi": [
+    "show iscsi initiators",
+    "list iqns in a target"
+  ],
+  "get port": [
+    "list ports",
+    "show port settings",
+    "show the fibre channel ports",
+    "which ports are online",
+    "show port wwn",
+    "show port attributes"
+  ],
+  "modify port": [
+    "change port speed",
+    "set port topology",
+    "set the port attribute",
+    "configure iscsi port ip address",
+    "set an mtu on a port",
+    "set the vlan on a port",
+    "switch a port to nvme",
+    "set port security",
+    "enable lun security on a port"
+  ],
+  "get pool": [
+    "show pools",
+    "list pool capacity",
+    "how full is pool 0",
+    "show pool usage",
+    "find a free pool id",
+    "show pool subscription",
+    "pool thresholds"
+  ],
+  "add dp_pool": [
+    "create a pool",
+    "create a dynamic provisioning pool",
+    "add a volume to a pool",
+    "grow a pool",
+    "expand a pool",
+    "add pool volumes",
+    "make a new pool",
+    "add capacity to a pool"
+  ],
+  "get dp_pool": [
+    "show dp pool details",
+    "show tiering information of a pool"
+  ],
+  "modify pool": [
+    "change pool thresholds",
+    "set the pool warning threshold",
+    "change pool subscription limit",
+    "turn a pool into a tiered pool",
+    "set the pool tier policy",
+    "start pool monitoring"
+  ],
+  "delete pool": [
+    "delete a pool",
+    "remove a pool"
+  ],
+  "rename pool": [
+    "rename a pool",
+    "change the name of a pool"
+  ],
+  "get parity_grp": [
+    "list parity groups",
+    "show raid groups",
+    "show parity group capacity",
+    "which drives are in parity group 1-1"
+  ],
+  "add parity_grp": [
+    "create a parity group",
+    "create a raid group",
+    "build a raid 6 group from drives"
+  ],
+  "get command_status": [
+    "did the command finish",
+    "check an asynchronous command",
+    "show command status",
+    "what is the status of my request id",
+    "check progress of the last command"
+  ],
+  "get error_message": [
+    "what does this error mean",
+    "look up an error code",
+    "explain ssb codes",
+    "decode an error"
+  ],
+  "lock resource": [
+    "lock the resource group",
+    "lock the array before changing",
+    "prevent others from changing the configuration"
+  ],
+  "unlock resource": [
+    "unlock the resource group",
+    "release the lock",
+    "unlock the array"
+  ],
+  "add device_grp": [
+    "create a device group",
+    "add ldevs to a device group",
+    "group volumes for replication"
+  ],
+  "get device_grp": [
+    "list device groups",
+    "show device group members"
+  ],
+  "delete device_grp": [
+    "delete a device group",
+    "remove an ldev from a device group"
+  ],
+  "add copy_grp": [
+    "create a copy group",
+    "make a copy group for replication",
+    "set up a copy group for gad",
+    "pair up two device groups"
+  ],
+  "get copy_grp": [
+    "list copy groups",
+    "show copy groups"
+  ],
+  "delete copy_grp": [
+    "delete a copy group"
+  ],
+  "add journal": [
+    "create a journal",
+    "create a journal group for universal replicator",
+    "add a journal volume"
+  ],
+  "get journal": [
+    "show journals",
+    "list journal groups"
+  ],
+  "add quorum": [
+    "set up a quorum disk",
+    "create a quorum for global-active device",
+    "register a quorum"
+  ],
+  "get quorum": [
+    "show quorum disks",
+    "list quorum settings"
+  ],
+  "add resource": [
+    "create a resource group",
+    "make a resource group"
+  ],
+  "get resource": [
+    "list resource groups",
+    "show resource groups"
+  ],
+  "map resource": [
+    "add a volume to a resource group",
+    "move an ldev into a resource group",
+    "assign resources to a virtual storage machine"
+  ],
+  "add snapshot": [
+    "create a thin image snapshot",
+    "take a snapshot of a volume"
+  ],
+  "get snapshot": [
+    "list snapshots",
+    "show thin image pairs"
+  ],
+  "add snap_pool": [
+    "create a thin image pool",
+    "create a snapshot pool"
+  ],
+  "add external_grp": [
+    "map an external volume",
+    "virtualize external storage",
+    "create an external volume group"
+  ],
+  "discover external_storage": [
+    "find external storage",
+    "discover external storage ports",
+    "scan for external storage"
+  ],
+  "add path": [
+    "add a path to external storage",
+    "add an external path"
+  ],
+  "get path": [
+    "show external paths",
+    "list external storage paths"
+  ],
+  "add nvm_subsystem": [
+    "create an nvm subsystem",
+    "create an nvme subsystem",
+    "create an nvme over tcp subsystem"
+  ],
+  "get nvm_subsystem": [
+    "show nvm subsystems",
+    "list nvme subsystems"
+  ],
+  "add nvm_subsystem_port": [
+    "add a port to an nvm subsystem",
+    "attach an nvme tcp port to a subsystem"
+  ],
+  "add host_nqn": [
+    "register a host nqn",
+    "add an nvme host",
+    "add the host nqn to a subsystem"
+  ],
+  "get host_nqn": [
+    "show host nqns",
+    "list nvme hosts"
+  ],
+  "add namespace": [
+    "create a namespace",
+    "add a namespace to a subsystem",
+    "present a volume over nvme",
+    "map an ldev to a namespace"
+  ],
+  "get namespace": [
+    "list namespaces",
+    "show namespaces in a subsystem"
+  ],
+  "add namespace_path": [
+    "give a host access to a namespace",
+    "add a host namespace path",
+    "map a namespace to a host nqn"
+  ],
+  "get system": [
+    "show storage system information",
+    "show the array model and serial number",
+    "what firmware is the array running"
+  ],
+  "get license": [
+    "show licenses",
+    "list installed license keys"
+  ],
+  "get clpr": [
+    "show cache partitions",
+    "list clprs"
+  ],
+  "get chap_user": [
+    "list chap users",
+    "show chap users on a port"
+  ],
+  "add chap_user": [
+    "create a chap user"
+  ],
+  "get drive": [
+    "list drives",
+    "show drive status",
+    "show spare drives"
+  ],
+  "get qos_grp": [
+    "list qos groups"
+  ],
+  "add qos_grp": [
+    "create a qos group"
+  ],
+  "send ping": [
+    "ping from a port",
+    "test connectivity from a storage port to an ip address"
+  ],
+  "add server": [
+    "register a server",
+    "add a server for nvme or iscsi"
+  ],
+  "get ctg": [
+    "show consistency groups",
+    "list ctg usage"
+  ]
+}

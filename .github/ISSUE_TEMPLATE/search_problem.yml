@@ -1,0 +1,30 @@
+name: Search problem
+description: raidcom_list_commands ranked the wrong command first for a question.
+title: "[Search]: "
+labels: ["search"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: The question
+      description: The words you gave, exactly as typed.
+      placeholder: "map a volume to a host group"
+    validations:
+      required: true
+  - type: input
+    id: expected
+    attributes:
+      label: The command you expected
+      placeholder: "add lun"
+    validations:
+      required: true
+  - type: input
+    id: got
+    attributes:
+      label: The command ranked first
+      placeholder: "get lun"
+  - type: dropdown
+    id: confidence
+    attributes:
+      label: Confidence the server reported
+      options: ["high", "medium", "low"]

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.DS_Store
+release/
+# The Hitachi manuals are copyrighted: never commit them or text extracted from them.
+*.pdf
+*.docx
+cci-reference*.txt

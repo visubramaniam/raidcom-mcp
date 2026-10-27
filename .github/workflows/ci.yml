@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 22.19.0 is the oldest Node.js the package supports (engines), so it is tested exactly.
+        node: ["22.19.0", 22, 24]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the image and check that it starts and answers /healthz over HTTP
+        run: |
+          docker build -t raidcom-mcp:ci .
+          docker run -d --name r -p 8361:8361 -e RAIDCOM_TRANSPORT=http -e RAIDCOM_HTTP_HOST=0.0.0.0 -e RAIDCOM_HTTP_OPEN=true -e RAIDCOM_HTTP_BEHIND_TLS_PROXY=true raidcom-mcp:ci
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8361/healthz && exit 0; sleep 1; done
+          docker logs r; exit 1

@@ -1,0 +1,28 @@
+# Weekly pull requests for dependency updates. Actions are pinned by commit SHA and the base image by digest;
+# Dependabot updates the pins and their version comments.
+#
+# Two kinds of major update are made by hand instead:
+# - @types/node tracks the oldest Node.js version the package supports, not the newest, so its types can't
+#   allow APIs that older supported versions lack.
+# - The Docker node image tracks a Node.js LTS line; Dependabot would also offer odd-numbered (non-LTS)
+#   majors, which reach end of life within months.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]

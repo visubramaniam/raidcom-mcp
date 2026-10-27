@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest an improvement to raidcom-mcp.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This repository is public**: leave out serial numbers, WWNs, host names and IP addresses.
+
+        raidcom-mcp is build-only by design: it never connects to a storage system or runs a command. Requests to execute commands won't be accepted; requests that make the commands it builds better are welcome.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?

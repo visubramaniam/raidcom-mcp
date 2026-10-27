@@ -1,0 +1,37 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.visubramaniam/raidcom-mcp",
+  "title": "Hitachi raidcom command builder (Community)",
+  "description": "Community MCP server that builds and validates Hitachi raidcom commands from structured requests. Build-only: it never connects to a storage system.",
+  "repository": {
+    "url": "https://github.com/visubramaniam/raidcom-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "raidcom-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "RAIDCOM_TRANSPORT",
+          "description": "stdio (default) or http",
+          "isRequired": false,
+          "format": "string",
+          "default": "stdio"
+        },
+        {
+          "name": "RAIDCOM_HTTP_TOKEN",
+          "description": "Bearer token for the HTTP transport (at least 32 characters)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

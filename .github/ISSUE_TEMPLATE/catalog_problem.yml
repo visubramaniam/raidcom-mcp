@@ -1,0 +1,27 @@
+name: Catalogue problem
+description: A command from the Hitachi manual is rejected, or an option's rules are wrong.
+title: "[Catalogue]: "
+labels: ["catalog"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The catalogue is generated from the Command Reference (MK-90RD7009), which sometimes disagrees with itself. Please give the command line, the error and the manual page. Don't paste long passages from the manual; the page number is enough.
+  - type: textarea
+    id: command
+    attributes:
+      label: The command line
+      placeholder: "raidcom add lun -port CL1-A-0 -ldev_id 200 -lun_id 1"
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: The error or warning
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Manual version and page
+      placeholder: "MK-90RD7009-67, page 123"

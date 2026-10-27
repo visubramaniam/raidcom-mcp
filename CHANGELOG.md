@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- The Release workflow now runs the Windows package tests (the job was missing from 0.1.1).
+
 ## 0.1.1 — 2026-10-26
 
 ### Added

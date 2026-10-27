@@ -457,7 +457,10 @@
               "{depletion_threshold}"
             ]
           },
-          "when": "warning_threshold"
+          "when": [
+            "warning_threshold",
+            "depletion_threshold"
+          ]
         },
         {
           "title": "Check the pool",

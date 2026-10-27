@@ -104,6 +104,8 @@ export class Catalog {
 
   /** Names close to a mistyped one, for error messages. */
   suggest(name: string, n = 4): string[] {
+    // edit distance costs length × length; a name this long matches nothing anyway
+    if (name.length > 64) return [];
     const words = name.trim().toLowerCase().replace(/^raidcom\s+/, "").split(/\s+/).filter(Boolean);
     const target = words.join(" ");
     const scored = [...this.commands.keys()].map((k) => {

@@ -2,9 +2,36 @@
 
 ## Unreleased
 
+## 0.1.2 — 2026-10-27
+
+0.1.0 and 0.1.1 were withdrawn from npm and can't be published again there; this is the first version on npm since. 0.1.1's GitHub release and Docker image stay available.
+
+### Security
+
+- **Script text could carry shell commands through two global options.** `global.pair_type` was written into scripts without a check (`"pair_type": "$(id)"` produced `run raidcom lock resource -I$(id)0`), and `global.instance` was only checked when a step produced at least one command (`"instance": "0;id"` produced `export HORCMINST=0;id`). All global options are now checked once, before anything is written: `pair_type` must be H, M, TC or SI, `instance` and `unit` whole numbers from 0 to 9999, and unknown global options are refused.
+- **A value starting with `#` was written unquoted,** so the shell treated the rest of the line as a comment and dropped options after it, including `-checkmode precheck`. Values containing `#` are now always quoted.
+- **Values that start with `-` and a letter are refused,** so a value such as `"CL1-A-0 -IH9"` can't add options of its own.
+- **LDEV IDs that aren't numbers** (`abc`, `1e+308`) are now errors rather than warnings.
+
 ### Fixed
 
-- The Release workflow now runs the Windows package tests (the job was missing from 0.1.1).
+- **A request could stop or slow the HTTP server.** A range with numbers above 2^53 made range expansion loop until the process ran out of memory; very long command names took seconds of CPU; large `foreach` and `zip` lists were expanded before the 500-command limit was checked. Ranges now only use exact numbers, lists stop at the limit while they are expanded, and names longer than 64 characters are refused before any matching.
+- **Slow clients could take every HTTP slot.** Clients now have 10 seconds to send headers and 15 to send the whole request, and one address may have at most 8 requests in progress.
+- **Behind a trusted proxy, the rate limit used the client-supplied X-Forwarded-For entry.** It now uses the entry the proxy added (the rightmost), and the limiter remembers at most 10,000 addresses.
+- **Empty `foreach` or `zip` lists, or a script with no commands,** are errors instead of an empty script reported as success.
+- **`raidcom_check_command`:** the two words after `-login` are always dropped, even when the password starts with `-`; a bare `-I` and a repeated option are reported.
+- **Names such as `constructor` or `__proto__`** in queries, recipe IDs, parameters and option names no longer crash a tool or slip past checks.
+- **`create-dp-pool`:** giving only one of the two thresholds is an error instead of being ignored.
+- **Search confidence:** a tie between the top results is now rated low, and the search evaluation checks that high-confidence results are right at least 85% of the time.
+- **Release pipeline:**
+  - the MCP Registry rejected `server.json` (description over 100 characters);
+  - the plugin bump never started after automatic releases; Release now starts it once npm has the version;
+  - plugin releases no longer become the repository's "latest" release;
+  - the CHANGELOG heading checks match the exact version;
+  - rebuilding an older release no longer moves the Docker `latest` tag back;
+  - the Windows test uses the smoke test from the tag;
+  - the Windows package tests run again (the job was missing from 0.1.1's Release workflow);
+  - the plugin's lockfile is audited and watched by Dependabot.
 
 ## 0.1.1 — 2026-10-26
 

@@ -62,8 +62,9 @@ export interface BuildResult {
 
 // ---------- small helpers ----------
 
-/** Characters allowed in a value written without quotes. */
-const PLAIN = /^[A-Za-z0-9_.:\/@#+,=%-]+$/;
+/** Characters allowed in a value written without quotes. `#` is not among them: a word starting with it would make
+ *  the shell ignore the rest of the line, so a value containing it is always quoted. */
+const PLAIN = /^[A-Za-z0-9_.:\/@+,=%-]+$/;
 /** Characters allowed in a value at all: plain ones and spaces (the value is then quoted). */
 const SAFE = /^[A-Za-z0-9_.:\/@#+,=% -]+$/;
 
@@ -210,12 +211,17 @@ function checkValues(flag: string, values: string[], ctx: Ctx): string[] {
       continue;
     }
     if (literals.some((l) => l.toLowerCase() === v.toLowerCase())) continue;
+    // raidcom would read a value such as -IH9 as an option of its own
+    if (/^-[A-Za-z]/.test(v)) {
+      errors.push(`${flag}: value "${v}" starts with "-", so raidcom would read it as an option. Give each option separately in \`options\`.`);
+      continue;
+    }
     if (LDEV_FLAGS.has(flag)) {
       const parts = v.split("-");
       // mainframe notation: CU:LDEV in hex, e.g. dd:0f (CU 0xdd, LDEV 0x0f) is LDEV number 0xdd0f
       const cuLdev = (x: string) => (/^[0-9a-f]{1,2}:[0-9a-f]{2}$/i.test(x) ? parseInt(x.replace(":", ""), 16) : Number.NaN);
       const nums = parts.map((x) => (x.includes(":") ? cuLdev(x) : num(x)));
-      if (parts.length > 2 || nums.some(Number.isNaN)) warnings.push(`${flag}: "${v}" is not a decimal number, 0x hex number, CU:LDEV such as dd:0f, or range such as 100-110`);
+      if (parts.length > 2 || nums.some(Number.isNaN)) errors.push(`${flag}: "${v}" is not a decimal number, 0x hex number, CU:LDEV such as dd:0f, or range such as 100-110`);
       else nums.forEach((n) => range("LDEV ID", n, limits.ldev));
     } else if (flag === "-lun_id") {
       const n = num(v);
@@ -237,6 +243,90 @@ function checkValues(flag: string, values: string[], ctx: Ctx): string[] {
   return out;
 }
 
+// ---------- global options ----------
+
+const PAIR_TYPES = ["H", "M", "TC", "SI"];
+/** Largest instance number accepted; HORCM instance numbers are small, this only keeps nonsense out. */
+const MAX_INSTANCE = 9999;
+/** Longest command name or option name looked up; longer input is refused before any fuzzy matching. */
+const MAX_NAME = 64;
+
+export interface GlobalCheck {
+  errors: string[];
+  warnings: string[];
+  /** Written right after the object (`-nomsg`). */
+  head: string[];
+  /** Written at the end. */
+  tail: string[];
+  /** The instance option on its own (`-I0`, `-IH1`), or "" when no instance was given; used by scripts. */
+  instanceFlag: string;
+  /** The instance number, when one was given. */
+  instance?: number;
+}
+
+/**
+ * Validates the global options. Every value that reaches command or script text goes through here, whether the
+ * caller is build() or a script, so nothing in `global` is ever written unchecked.
+ */
+export function checkGlobal(raw: unknown, limits: ModelLimits, modelGiven: boolean): GlobalCheck {
+  const out: GlobalCheck = { errors: [], warnings: [], head: [], tail: [], instanceFlag: "" };
+  if (raw === undefined || raw === null) return out;
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    out.errors.push("global must be an object such as {\"instance\": 0}");
+    return out;
+  }
+  const g = raw as Record<string, unknown>;
+  const known = ["instance", "pair_type", "serial", "unit", "fx", "nomsg", "checkmode", "store"];
+  for (const k of Object.keys(g)) if (!known.includes(k)) out.errors.push(`"${k}" is not a global option. Known: ${known.join(", ")}`);
+  if (g.nomsg === true) out.head.push("-nomsg");
+  else if (g.nomsg !== undefined && g.nomsg !== false) out.errors.push("nomsg must be true or false");
+
+  if (g.pair_type !== undefined && (typeof g.pair_type !== "string" || !PAIR_TYPES.includes(g.pair_type))) {
+    out.errors.push(`pair_type must be one of ${PAIR_TYPES.join(", ")}, not ${JSON.stringify(g.pair_type)}`);
+  } else if (g.pair_type !== undefined && g.instance === undefined) out.warnings.push("pair_type needs an instance number; it was ignored");
+  if (g.instance !== undefined) {
+    if (typeof g.instance !== "number" || !Number.isSafeInteger(g.instance) || g.instance < 0 || g.instance > MAX_INSTANCE) {
+      out.errors.push(`instance must be a whole number from 0 to ${MAX_INSTANCE}, not ${JSON.stringify(g.instance)}`);
+    } else {
+      out.instance = g.instance;
+      out.instanceFlag = `-I${(g.pair_type as string | undefined) ?? ""}${g.instance}`;
+      out.tail.push(out.instanceFlag);
+    }
+  }
+  if (g.serial !== undefined) {
+    const s = typeof g.serial === "number" || typeof g.serial === "string" ? String(g.serial) : "";
+    if (!/^\d{4,8}$/.test(s)) out.errors.push(`serial must be digits only, for example 810123 (got ${JSON.stringify(g.serial)})`);
+    else {
+      const n = Number(s);
+      if (n < limits.serial[0] || n > limits.serial[1]) {
+        const msg = `serial ${s} is outside ${limits.serial[0]} to ${limits.serial[1]}${modelGiven ? ` for ${limits.label}` : ""}. VSP 5000 series serials start with 5 (500000 to 599999) and VSP G1x00 / VSP F1500 add a leading 3`;
+        (modelGiven ? out.errors : out.warnings).push(msg);
+      }
+      out.tail.push("-s", s);
+    }
+  }
+  if (g.unit !== undefined) {
+    if (typeof g.unit !== "number" || !Number.isSafeInteger(g.unit) || g.unit < 0 || g.unit > MAX_INSTANCE) out.errors.push(`unit must be a whole number from 0 to ${MAX_INSTANCE}, not ${JSON.stringify(g.unit)}`);
+    else out.tail.push("-u", String(g.unit));
+  }
+  if (g.fx === true) out.tail.push("-fx");
+  else if (g.fx !== undefined && g.fx !== false) out.errors.push("fx must be true or false");
+  if (g.checkmode !== undefined) {
+    if (g.checkmode !== "precheck") out.errors.push(`checkmode must be "precheck", not ${JSON.stringify(g.checkmode)}`);
+    else out.tail.push("-checkmode", "precheck");
+  }
+  if (g.store !== undefined) {
+    if (typeof g.store !== "string" || !PLAIN.test(g.store) || g.store.startsWith("-")) out.errors.push(`store must be a plain file name (letters, digits and _ . : / @ + , = % -, not starting with -), not ${JSON.stringify(g.store)}`);
+    else out.tail.push("-store", g.store);
+  }
+  if (out.errors.length) {
+    out.head = [];
+    out.tail = [];
+    out.instanceFlag = "";
+  }
+  return out;
+}
+
 // ---------- the builder ----------
 
 function formLabel(f: { title: string; usage: string }) {
@@ -249,6 +339,14 @@ export function build(catalog: Catalog, req: BuildRequest): BuildResult {
   const notes: string[] = [];
   const fail = (): BuildResult => ({ ok: false, errors, warnings, notes });
 
+  if (typeof req.command !== "string" || !req.command.trim()) {
+    errors.push("command must be a command name such as \"add lun\"");
+    return fail();
+  }
+  if (req.command.length > MAX_NAME) {
+    errors.push(`Unknown raidcom command (the name is longer than ${MAX_NAME} characters). Use raidcom_list_commands to search.`);
+    return fail();
+  }
   const cmd = catalog.find(req.command);
   if (!cmd) {
     errors.push(`Unknown raidcom command "${req.command}". Closest: ${catalog.suggest(req.command).join(", ")}. Use raidcom_list_commands to search.`);
@@ -263,9 +361,18 @@ export function build(catalog: Catalog, req: BuildRequest): BuildResult {
 
   // options → catalogue spelling → values
   const given = new Map<string, string[]>();
-  for (const [raw, v] of Object.entries(req.options ?? {})) {
+  const options = req.options ?? {};
+  if (typeof options !== "object" || Array.isArray(options)) {
+    errors.push("options must be an object of option names and values, such as {\"-ldev_id\": 200}");
+    return fail();
+  }
+  for (const [raw, v] of Object.entries(options)) {
     const values = toValues(v);
     if (values === undefined) continue;
+    if (raw.length > MAX_NAME) {
+      errors.push(`An option name longer than ${MAX_NAME} characters is not an option of raidcom ${name}.`);
+      continue;
+    }
     const flag = resolveFlag(cmd, raw);
     if (!flag) {
       errors.push(`"${raw}" is not an option of raidcom ${name}. Closest: ${nearest(cmd, raw).join(", ") || "none (this command has no options)"}.`);
@@ -312,40 +419,12 @@ export function build(catalog: Catalog, req: BuildRequest): BuildResult {
   for (const [flag, values] of given) rendered.push([flag, checkValues(flag, values, ctx)]);
 
   // global options
-  const g = req.global ?? {};
-  const tail: string[] = [];
-  const head: string[] = [];
-  if (g.nomsg) head.push("-nomsg");
-  if (g.pair_type && g.instance === undefined) warnings.push("pair_type needs an instance number; it was ignored");
-  if (g.instance !== undefined) {
-    if (!Number.isInteger(g.instance) || g.instance < 0) errors.push(`instance must be a whole number of 0 or more, not ${g.instance}`);
-    else tail.push(`-I${g.pair_type ?? ""}${g.instance}`);
-  }
-  if (g.serial !== undefined) {
-    const s = String(g.serial);
-    if (!/^\d{4,8}$/.test(s)) errors.push(`serial must be digits only, for example 810123 (got "${s}")`);
-    else {
-      const n = Number(s);
-      if (n < limits.serial[0] || n > limits.serial[1]) {
-        const msg = `serial ${s} is outside ${limits.serial[0]} to ${limits.serial[1]}${modelHit ? ` for ${limits.label}` : ""}. VSP 5000 series serials start with 5 (500000 to 599999) and VSP G1x00 / VSP F1500 add a leading 3`;
-        (modelHit ? errors : warnings).push(msg);
-      }
-      tail.push("-s", s);
-    }
-  }
-  if (g.unit !== undefined) {
-    if (!Number.isInteger(g.unit) || g.unit < 0) errors.push(`unit must be a whole number of 0 or more, not ${g.unit}`);
-    else tail.push("-u", String(g.unit));
-  }
-  if (g.fx) tail.push("-fx");
-  if (g.checkmode) {
-    if (g.checkmode !== "precheck") errors.push(`checkmode must be "precheck", not "${g.checkmode}"`);
-    else tail.push("-checkmode", "precheck");
-  }
-  if (g.store !== undefined) {
-    if (!PLAIN.test(g.store)) errors.push(`store must be a plain file name (letters, digits and _ . : / @ # + , = % -), not "${g.store}"`);
-    else tail.push("-store", g.store);
-  }
+  const gc = checkGlobal(req.global, limits, !!modelHit);
+  errors.push(...gc.errors);
+  warnings.push(...gc.warnings);
+  const head = gc.head;
+  const tail = gc.tail;
+  const g = (req.global ?? {}) as GlobalOptions;
 
   if (errors.length) return fail();
 

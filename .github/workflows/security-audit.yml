@@ -9,6 +9,7 @@ on:
     paths:
       - package.json
       - package-lock.json
+      - plugin/package-lock.json
       - Dockerfile
       - .github/workflows/security-audit.yml
   schedule:
@@ -27,6 +28,9 @@ jobs:
         with:
           node-version: 24
       - name: npm audit (runtime dependencies)
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: npm audit (the Claude Code plugin's lockfile)
+        working-directory: plugin
         run: npm audit --omit=dev --audit-level=moderate
 
   image-scan:

@@ -2,7 +2,7 @@ name: Plugin release
 
 # Keeps the Claude Code plugin (plugin/) in step with the server and publishes it.
 #
-# bump:    after a Release workflow succeeds (the server is on npm), opens a pull request that moves the plugin to that
+# bump:    started by the Release workflow once the server is on npm (or by hand), opens a pull request that moves the plugin to that
 #          version: plugin.json, plugin/package.json and the lockfile with integrity hashes. The plugin trails the
 #          server by one release because its lockfile can only name a version that is already on npm.
 # release: when a push to main changes the plugin's version, tags plugin-v<version> and creates a GitHub release with
@@ -13,10 +13,9 @@ name: Plugin release
 # own token don't start CI. Without the secret it falls back to the workflow token, which needs the setting "Allow
 # GitHub Actions to create and approve pull requests" (Settings → Actions → General); close and reopen the pull request
 # to run CI on it.
+# The Release workflow starts the bump with `gh workflow run` as its last job. (A workflow_run trigger would not work:
+# Release is itself started by the Tag release workflow's token, and runs started that way don't raise workflow_run.)
 on:
-  workflow_run:
-    workflows: [Release]
-    types: [completed]
   workflow_dispatch:
     inputs:
       version:
@@ -33,8 +32,11 @@ permissions:
 
 jobs:
   bump:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    concurrency:
+      group: plugin-bump
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
@@ -52,18 +54,22 @@ jobs:
           INPUT: ${{ inputs.version }}
         run: |
           version="$INPUT"
-          if [ -z "$version" ]; then version=$(gh release view --json tagName --jq .tagName | sed 's/^v//'); fi
+          # the newest server release; plugin-v* releases are skipped
+          if [ -z "$version" ]; then version=$(gh release list --exclude-drafts --exclude-pre-releases --json tagName --jq '[.[] | select(.tagName | test("^v[0-9]"))][0].tagName' | sed 's/^v//'); fi
+          if ! printf '%s' "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then echo "::error::\"$version\" is not a version such as 0.1.2"; exit 1; fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           current=$(node -p 'require("./plugin/package.json").dependencies["raidcom-mcp"]')
           if [ "$current" = "$version" ]; then echo "plugin already at $version"; echo "skip=true" >> "$GITHUB_OUTPUT"; fi
       - name: Wait for the version on npm
         if: steps.v.outputs.skip != 'true'
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
         run: |
           for i in $(seq 1 40); do
-            npm view "raidcom-mcp@${{ steps.v.outputs.version }}" version >/dev/null 2>&1 && exit 0
+            npm view "raidcom-mcp@$VERSION" version >/dev/null 2>&1 && exit 0
             sleep 15
           done
-          echo "::error::raidcom-mcp@${{ steps.v.outputs.version }} is not on npm yet (see the npm job of the Release workflow)"
+          echo "::error::raidcom-mcp@$VERSION is not on npm yet (see the npm job of the Release workflow)"
           exit 1
       - name: Move the plugin and open a pull request
         if: steps.v.outputs.skip != 'true'
@@ -111,6 +117,7 @@ jobs:
           mkdir -p dist-plugin
           (cd plugin && zip -qr "../dist-plugin/raidcom-community-plugin-$version.zip" . -x 'node_modules/*')
           (cd dist-plugin && sha256sum *.zip > SHA256SUMS)
-          gh release create "$tag" --target "$GITHUB_SHA" --title "raidcom-community plugin $version" \
+          # --latest=false: "latest" stays the newest server release, which other workflows look up
+          gh release create "$tag" --latest=false --target "$GITHUB_SHA" --title "raidcom-community plugin $version" \
             --notes "Claude Code plugin for raidcom-mcp $version. Install: \`/plugin install raidcom-community --marketplace visubramaniam/raidcom-mcp\`. See README.plugin.md." \
             dist-plugin/*.zip dist-plugin/SHA256SUMS

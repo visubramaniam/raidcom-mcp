@@ -40,6 +40,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # the smoke test as it was at the tag being tested (the default branch when no tag is given)
+          ref: ${{ inputs.tag }}
           sparse-checkout: tests/smoke
 
       - name: Download, verify and unpack
@@ -48,7 +50,9 @@ jobs:
           TAG: ${{ inputs.tag }}
           TARGET: ${{ matrix.target }}
         run: |
-          if (-not $env:TAG) { $env:TAG = gh release view --repo $env:GITHUB_REPOSITORY --json tagName --jq .tagName }
+          # the newest server release; plugin-v* releases are skipped
+          if (-not $env:TAG) { $env:TAG = (gh release list --repo $env:GITHUB_REPOSITORY --exclude-drafts --exclude-pre-releases --json tagName | ConvertFrom-Json | Where-Object { $_.tagName -match '^v\d' } | Select-Object -First 1).tagName }
+          if ($env:TAG -notmatch '^v\d+\.\d+\.\d+$') { throw "`"$env:TAG`" is not a release tag such as v0.1.2" }
           $version = $env:TAG.TrimStart('v')
           $zip = "raidcom-mcp-$version-$env:TARGET.zip"
           gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --pattern $zip --pattern SHA256SUMS --dir dl

@@ -82,7 +82,7 @@ test("the right syntax form is matched", () => {
 test("options from different forms give a warning", () => {
   const r = build(catalog, { command: "add lun", options: { "-port": "CL1-A-0", "-ldev_id": 5, "-device_grp_name": "grp1", "-grp_opt": "ldev" } });
   assert.ok(r.ok);
-  assert.ok(r.warnings.length > 0);
+  assert.ok(r.warnings.some((w) => /alternative to another option|different syntax form/.test(w)), r.warnings.join("\n"));
 });
 
 test("value counts", () => {
@@ -110,10 +110,9 @@ test("LDEV, LUN, pool and port limits follow the model", () => {
   ok({ command: "add ldev", options: { "-pool": "mypool", "-ldev_id": "0x10", "-capacity": "1G" } });
 });
 
-test("odd-looking values are warnings, not errors", () => {
-  const r = build(catalog, { command: "get ldev", options: { "-ldev_id": "abc" } });
-  assert.ok(r.ok);
-  assert.ok(r.warnings.some((w) => /not a decimal number/.test(w)));
+test("odd-looking values are warnings, and unusable LDEV IDs are errors", () => {
+  assert.match(bad({ command: "get ldev", options: { "-ldev_id": "abc" } }), /not a decimal number/);
+  assert.match(bad({ command: "delete ldev", options: { "-ldev_id": "1e+308" } }), /not a decimal number/);
   assert.ok(build(catalog, { command: "add ldev", options: { "-pool": 0, "-ldev_id": 5, "-capacity": "big" } }).warnings.some((w) => /size/.test(w)));
   const r2 = build(catalog, { command: "get port", options: { "-port": "nonsense" } });
   assert.ok(r2.ok);
@@ -145,10 +144,50 @@ test("mainframe CU:LDEV notation is accepted and range-checked", () => {
   assert.equal(ok({ command: "modify ldev", options: { "-ldev_id": "dd:00", "-ssid": "0014" } }).command, "raidcom modify ldev -ldev_id dd:00 -ssid 0014");
   assert.equal(build(catalog, { command: "get ldev", options: { "-ldev_id": "dd:0f" } }).warnings.length, 0);
   assert.match(bad({ command: "get ldev", options: { "-ldev_id": "ff:ff" } }), /outside 0 to 65279/);
-  assert.ok(build(catalog, { command: "get ldev", options: { "-ldev_id": "dd:zz" } }).warnings.some((w) => /CU:LDEV/.test(w)));
+  assert.match(bad({ command: "get ldev", options: { "-ldev_id": "dd:zz" } }), /CU:LDEV/);
 });
 
 test("add parity_grp accepts -emulation for mainframe parity groups", () => {
   const r = ok({ command: "add parity_grp", options: { "-parity_grp_id": "1-2", "-drive_location": ["0-1", "1-1"], "-emulation": "3390-V", "-raid_type": "6D2P" } });
   assert.match(r.command, /-emulation 3390-V/);
+});
+
+// ---------- regressions from the 2026-10-26 audit ----------
+
+test("a value containing # is quoted, so the shell can't treat the rest of the line as a comment", () => {
+  const r = ok({ command: "add host_grp", options: { "-port": "CL1-A-1", "-host_grp_name": "#esx01" }, global: { instance: 0, checkmode: "precheck" } });
+  assert.equal(r.command, "raidcom add host_grp -port CL1-A-1 -host_grp_name '#esx01' -I0 -checkmode precheck");
+  assert.equal(shellQuote("a#b"), "'a#b'");
+  assert.match(bad({ command: "get port", global: { store: "#x" } }), /plain file name/);
+});
+
+test("values that raidcom would read as options are refused", () => {
+  assert.match(bad({ command: "delete lun", options: { "-port": "CL1-A-0 -IH9", "-ldev_id": 100 } }), /starts with "-"/);
+  assert.match(bad({ command: "add host_grp", options: { "-port": "CL1-A", "-host_grp_name": "-s" } }), /starts with "-"/);
+  assert.match(bad({ command: "get port", global: { store: "-x" } }), /plain file name/);
+});
+
+test("global options are checked strictly", () => {
+  assert.match(bad({ command: "get port", global: { instance: 0, pair_type: "$(id)" } }), /pair_type must be one of H, M, TC, SI/);
+  assert.match(bad({ command: "get port", global: { instance: "0;id" } }), /instance must be a whole number/);
+  assert.match(bad({ command: "get port", global: { instance: 1e21 } }), /instance must be a whole number/);
+  assert.match(bad({ command: "get port", global: { unit: 1.5 } }), /unit must be a whole number/);
+  assert.match(bad({ command: "get port", global: { serial: { x: 1 } } }), /serial must be digits/);
+  assert.match(bad({ command: "get port", global: { bogus: 1 } }), /not a global option/);
+  assert.match(bad({ command: "get port", global: "nope" }), /global must be an object/);
+  assert.equal(ok({ command: "get port", global: { instance: 3, pair_type: "TC" } }).command, "raidcom get port -ITC3");
+});
+
+test("very long command and option names are refused quickly", () => {
+  const t0 = Date.now();
+  assert.match(bad({ command: "x".repeat(200000) + " y" }), /longer than 64/);
+  assert.match(bad({ command: "get port", options: { ["-" + "k".repeat(200000)]: 1 } }), /longer than 64/);
+  assert.equal(catalog.suggest("z".repeat(100000)).length, 0);
+  assert.ok(Date.now() - t0 < 500, `took ${Date.now() - t0} ms`);
+});
+
+test("odd request shapes are errors, not crashes", () => {
+  assert.match(bad({ command: 42 }), /command must be a command name/);
+  assert.match(bad({ command: "get port", options: [1, 2] }), /options must be an object/);
+  assert.match(bad({ command: "add host_grp", options: { "-port": "CL1-A", "-host_grp_name": { a: 1 } } }), /not allowed/);
 });

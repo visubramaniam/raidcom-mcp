@@ -51,5 +51,6 @@ run before on a given model.
 
 ## LDEV numbers
 
-Commands take decimal numbers (`-ldev_id 256`) or hexadecimal with a 0x prefix. `-fx` prints LDEV numbers in
+Commands take decimal numbers (`-ldev_id 256`), hexadecimal with a 0x prefix, or CU:LDEV in hexadecimal as used for
+mainframe volumes (`-ldev_id dd:0f`). `-fx` prints LDEV numbers in
 hexadecimal. Ranges like `-ldev_id 100-110` are accepted by the reporting commands.

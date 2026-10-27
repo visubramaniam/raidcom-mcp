@@ -1,0 +1,42 @@
+name: Security audit
+
+# Checks what ships against known advisories: the runtime dependency tree with npm audit, and the Docker image with
+# Trivy (OS packages and Node.js packages; HIGH and CRITICAL findings that have a fix). Runs on pull requests that
+# touch dependencies or the Dockerfile, and weekly, so a newly published advisory shows up as a failed scheduled run
+# (and does not block unrelated pull requests).
+on:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - Dockerfile
+      - .github/workflows/security-audit.yml
+  schedule:
+    - cron: "43 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: npm audit (runtime dependencies)
+        run: npm audit --omit=dev --audit-level=moderate
+
+  image-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build -t raidcom-mcp:scan .
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: raidcom-mcp:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"

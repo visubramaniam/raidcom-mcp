@@ -9,7 +9,7 @@ It is an independent project, not an official Hitachi Vantara product.
 - **Finds the right command.** `raidcom_list_commands` ranks the 178 commands in the catalogue against a question (BM25 with synonyms and verb intent) and says how confident it is.
 - **Builds one command.** `raidcom_build_command` takes a command name and options as structured data, checks them against the manual's syntax and the storage model's limits, and returns the command line.
 - **Builds many.** `raidcom_build_script` repeats steps over ranges (`foreach`, `zip`), adds `get command_status` after asynchronous commands, optionally locks the resource group, and returns a script that stops at the first failure.
-- **Ready-made workflows.** `raidcom_list_recipes` and `raidcom_build_recipe` cover 13 common jobs: FC, iSCSI and NVMe/TCP provisioning, DP pools, extending and deleting volumes, command devices, zero-page reclaim, inventory, copy groups.
+- **Ready-made workflows.** `raidcom_list_recipes` and `raidcom_build_recipe` cover 14 common jobs: FC, iSCSI and NVMe/TCP provisioning, DP pools, mainframe (3390) pools, extending and deleting volumes, command devices, zero-page reclaim, inventory, copy groups.
 - **Checks an existing command.** `raidcom_check_command` parses a pasted command line (never executing it; shell operators are refused) and reports every problem.
 - **Knows the model limits.** `raidcom_model_limits` gives the LDEV, LUN, pool, serial and port ranges of VSP One Block 24/26/28, VSP 5000 series and VSP E series.
 

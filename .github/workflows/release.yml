@@ -1,0 +1,179 @@
+name: Release
+
+# Builds the npm package for a v* tag, tests it as installed, attaches it to the tag's GitHub release (created from the
+# tag's CHANGELOG.md section), publishes it to npm unless that version is already there, lists it in the MCP Registry
+# and pushes the multi-arch Docker image to ghcr.io. The Tag release workflow starts it when a merged pull request
+# bumps the version; pushing a v* tag by hand or running it for an existing tag also works.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build, e.g. v0.1.1
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  GHCR_IMAGE: ghcr.io/visubramaniam/raidcom-mcp
+
+jobs:
+  packages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Check the tag matches package.json
+        id: version
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match package.json version $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - run: npm run package
+      - name: Smoke-test the package as installed
+        run: node tests/smoke/package-smoke.mjs "release/raidcom-mcp-${{ steps.version.outputs.version }}.tgz" "${{ steps.version.outputs.version }}"
+
+      - name: Attach the package to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            awk -v v="$VERSION" '$0 ~ "^## " { f = (index($0, "## " v) == 1) ; next } f' CHANGELOG.md > notes.md
+            [ -s notes.md ] || echo "Release $VERSION" > notes.md
+            gh release create "$TAG" --verify-tag --title "$VERSION" --notes-file notes.md
+          fi
+          gh release upload "$TAG" release/*.tgz release/SHA256SUMS --clobber
+
+  npm:
+    # Publishes the exact .tgz attached to the release, using npm trusted publishing: npm checks this workflow's OIDC
+    # token, so no npm token is stored, and adds a provenance attestation. Configure the trusted publisher on
+    # npmjs.com (package settings → workflow release.yml) before the first release; until then this job fails and the
+    # rest of the release is unaffected.
+    runs-on: ubuntu-latest
+    needs: packages
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Publish to npm
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.packages.outputs.version }}
+        run: |
+          if npm view "raidcom-mcp@$VERSION" version >/dev/null 2>&1; then
+            echo "raidcom-mcp@$VERSION is already on npm; nothing to publish"
+            exit 0
+          fi
+          gh release download "$TAG" --pattern "raidcom-mcp-$VERSION.tgz" --pattern SHA256SUMS
+          grep " raidcom-mcp-$VERSION.tgz$" SHA256SUMS | sha256sum -c -
+          npm install -g npm@11.6.2
+          npm publish "raidcom-mcp-$VERSION.tgz" --access public
+
+  mcp-registry:
+    # Lists the release in the official MCP Registry. GitHub OIDC proves the io.github.visubramaniam/ namespace; the
+    # registry checks that the npm package's mcpName matches server.json's name. Skips a version already listed.
+    runs-on: ubuntu-latest
+    needs: [packages, npm]
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VERSION: ${{ needs.packages.outputs.version }}
+      MCP_PUBLISHER_VERSION: v1.8.1
+      MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+      - name: Check whether to publish
+        id: check
+        run: |
+          name=$(jq -r .name server.json)
+          sv=$(jq -r .version server.json)
+          if [ "$sv" != "$VERSION" ]; then
+            echo "::error::server.json version $sv does not match package.json version $VERSION"
+            exit 1
+          fi
+          for i in $(seq 1 20); do
+            got=$(npm view "raidcom-mcp@$VERSION" mcpName 2>/dev/null || true)
+            [ -n "$got" ] && break
+            sleep 15
+          done
+          if [ "$got" != "$name" ]; then
+            echo "::error::raidcom-mcp@$VERSION on npm has mcpName '$got', expected '$name'"
+            exit 1
+          fi
+          url="https://registry.modelcontextprotocol.io/v0.1/servers/$(jq -rn --arg n "$name" '$n|@uri')/versions/$VERSION"
+          status=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 120 --retry 3 --retry-all-errors "$url" || true)
+          case "$status" in
+            200) echo "::notice::$name $VERSION is already in the MCP Registry"; exit 0 ;;
+            404) echo "publish=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::Couldn't check the MCP Registry for $name $VERSION (HTTP $status)"; exit 1 ;;
+          esac
+      - name: Install mcp-publisher
+        if: steps.check.outputs.publish
+        run: |
+          curl -fsSL -o mcp-publisher.tar.gz "https://github.com/modelcontextprotocol/registry/releases/download/$MCP_PUBLISHER_VERSION/mcp-publisher_linux_amd64.tar.gz"
+          echo "$MCP_PUBLISHER_SHA256  mcp-publisher.tar.gz" | sha256sum -c -
+          tar xzf mcp-publisher.tar.gz mcp-publisher
+      - name: Publish to the MCP Registry
+        if: steps.check.outputs.publish
+        run: |
+          ./mcp-publisher validate
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+
+  docker:
+    # Pushes the multi-arch image to GitHub Container Registry with the workflow's own token.
+    runs-on: ubuntu-latest
+    needs: packages
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.GHCR_IMAGE }}:${{ needs.packages.outputs.version }},${{ env.GHCR_IMAGE }}:latest

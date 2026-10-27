@@ -59,7 +59,7 @@ Edit `spec/limits.json` from the appendices of the Command Reference for that mo
 
 ## Releases
 
-Maintainers bump `package.json` and `server.json`, move the `Unreleased` notes under a dated heading in `CHANGELOG.md`, and tag.
+A release is a pull request: bump `version` in `package.json` and `server.json`, and move the `Unreleased` notes under a `## <version> — <date>` heading in `CHANGELOG.md`. When it is merged, the Tag release workflow tags `v<version>` and starts the Release workflow (GitHub release, npm, MCP Registry, ghcr.io image). Before the first release, configure npm trusted publishing for `raidcom-mcp` (workflow `release.yml`) on npmjs.com. To rebuild an existing release, run the Release workflow with its tag.
 
 ## Licence
 

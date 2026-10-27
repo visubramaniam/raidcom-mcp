@@ -21,7 +21,9 @@
     "eval": "npm run build && node tests/search-eval.mjs",
     "generate-catalog": "node scripts/generate-catalog.mjs",
     "test": "npm run build && node --test \"tests/unit/*.test.mjs\" && node tests/search-eval.mjs",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm test",
+    "package": "npm run build && node scripts/package.mjs",
+    "smoke": "node tests/smoke/package-smoke.mjs release/raidcom-mcp-$npm_package_version.tgz $npm_package_version"
   },
   "engines": {
     "node": ">=22.19.0"

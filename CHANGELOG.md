@@ -4,6 +4,10 @@
 
 ### Added
 
+- **Security scanning in CI.** CodeQL (security-extended queries) runs on every pull request, push to `main` and weekly. Dependency review fails a pull request that adds a vulnerable dependency. A Security audit workflow runs `npm audit` on the runtime dependencies and a Trivy scan of the Docker image on pull requests that touch dependencies or the Dockerfile, and weekly.
+
+### Added
+
 - **The Release workflow also pushes the image to Docker Hub** (`subramaniamv/raidcom-mcp`) when the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets are set; otherwise it pushes to ghcr.io only.
 
 ### Added

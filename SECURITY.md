@@ -36,6 +36,10 @@ Off by default (`RAIDCOM_TRANSPORT=stdio`). When on:
 
 Running a public instance: use a reverse proxy that ends TLS, set `RAIDCOM_HTTP_ALLOWED_HOSTS` to your name, set `RAIDCOM_HTTP_TRUST_PROXY=true` only when the proxy sets `X-Forwarded-For` itself, and run the container read-only as the `node` user.
 
+## Automated checks
+
+Every pull request runs CodeQL and dependency review. Dependency changes and the Docker image are also audited (`npm audit`, Trivy) on pull requests that touch them and weekly. Findings appear in the repository's Security tab.
+
 ## Dependencies
 
 One runtime dependency: `@modelcontextprotocol/sdk`. Dependabot proposes updates weekly; Actions are pinned by commit SHA and the Docker base image by digest.

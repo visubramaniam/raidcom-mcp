@@ -13,7 +13,8 @@
 // NODE_RUNTIME_VERSION overrides the Node.js version bundled in the standalone packages.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -21,7 +22,6 @@ import { parseArgs } from "node:util";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "release");
 const stage = join(out, ".stage");
-const cache = join(out, ".cache");
 const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const NODE_VERSION = process.env.NODE_RUNTIME_VERSION || "24.21.0";
 // Node.js release signing keys (github.com/nodejs/release-keys), pinned to a commit. If a release of NODE_VERSION
@@ -51,9 +51,9 @@ const sha256 = (file) => createHash("sha256").update(readFileSync(file)).digest(
 
 if (!existsSync(join(root, "dist", "index.js"))) throw new Error("dist/index.js is missing; run `npm run build` first");
 
-// Keep the download cache, replace everything else.
+// Start from an empty folder.
 mkdirSync(out, { recursive: true });
-for (const name of readdirSync(out)) if (name !== ".cache") rmSync(join(out, name), { recursive: true, force: true });
+for (const name of readdirSync(out)) rmSync(join(out, name), { recursive: true, force: true });
 
 /** dist/, spec/, the files above and production node_modules, as the server runs them. */
 function stageApp() {
@@ -100,10 +100,12 @@ function buildMcpb(app) {
 
 const NODE_BASE = `https://nodejs.org/dist/v${NODE_VERSION}`;
 
-async function download(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`GET ${url}: HTTP ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
+/** Downloads a URL with curl into a new private folder and returns the file's path. Nothing is read back until it has been checked. */
+function download(url) {
+  const dir = mkdtempSync(join(tmpdir(), "raidcom-download-"));
+  const file = join(dir, "download");
+  execFileSync("curl", ["--fail", "--silent", "--show-error", "--location", "--retry", "3", "--output", file, url], { stdio: ["ignore", "inherit", "inherit"] });
+  return file;
 }
 
 function hasGpgv() {
@@ -119,42 +121,33 @@ let nodeSumsLoaded;
 /** The Node.js release's SHASUMS256.txt, with its signature checked against the Node.js release keys. */
 const nodeSums = () => (nodeSumsLoaded ??= loadNodeSums());
 async function loadNodeSums() {
-  const sums = await download(`${NODE_BASE}/SHASUMS256.txt`);
+  const sumsFile = download(`${NODE_BASE}/SHASUMS256.txt`);
   if (!hasGpgv()) {
     // CI must check it; a local build without GnuPG only warns.
     if (process.env.CI) throw new Error("gpgv (GnuPG) is needed to check the signature of the Node.js release's SHASUMS256.txt");
     log("warning: gpgv not found, so the signature of the Node.js release's SHASUMS256.txt is not checked; install GnuPG to check it");
-    return sums.toString();
+    return readFileSync(sumsFile, "utf8");
   }
-  const dir = join(cache, `node-v${NODE_VERSION}-signature`);
-  mkdirSync(dir, { recursive: true });
-  const [sumsFile, sigFile, keyring] = ["SHASUMS256.txt", "SHASUMS256.txt.sig", "pubring.kbx"].map((f) => join(dir, f));
-  writeFileSync(sumsFile, sums);
-  writeFileSync(sigFile, await download(`${NODE_BASE}/SHASUMS256.txt.sig`));
-  writeFileSync(keyring, await download(NODE_KEYRING));
+  const sigFile = download(`${NODE_BASE}/SHASUMS256.txt.sig`);
+  const keyring = download(NODE_KEYRING);
   try {
     execFileSync("gpgv", ["--keyring", keyring, sigFile, sumsFile], { stdio: ["ignore", "ignore", "pipe"] });
   } catch (e) {
     throw new Error(`The Node.js ${NODE_VERSION} SHASUMS256.txt failed its signature check:\n${e.stderr}`);
   }
   log(`Node.js ${NODE_VERSION} SHASUMS256.txt: signature verified`);
-  return sums.toString();
+  return readFileSync(sumsFile, "utf8");
 }
 
-/** Downloads a Node.js release archive once and checks it against the release's signed SHASUMS256.txt. */
+/** Downloads a Node.js release archive and checks it against the release's signed SHASUMS256.txt before it is used. */
 async function nodeArchive(target) {
   const file = `node-v${NODE_VERSION}-${target}.${target.startsWith("win") ? "zip" : "tar.gz"}`;
-  const path = join(cache, file);
-  const base = NODE_BASE;
   const sums = await nodeSums();
   const expected = sums.split("\n").find((l) => l.endsWith(`  ${file}`))?.split(" ")[0];
-  if (!expected) throw new Error(`${file} is not listed in ${base}/SHASUMS256.txt`);
-  if (!existsSync(path) || sha256(path) !== expected) {
-    log(`downloading ${file}`);
-    mkdirSync(cache, { recursive: true });
-    writeFileSync(path, await download(`${base}/${file}`));
-    if (sha256(path) !== expected) throw new Error(`${file} does not match its published SHA-256`);
-  }
+  if (!expected) throw new Error(`${file} is not listed in ${NODE_BASE}/SHASUMS256.txt`);
+  log(`downloading ${file}`);
+  const path = download(`${NODE_BASE}/${file}`);
+  if (sha256(path) !== expected) throw new Error(`${file} does not match its published SHA-256`);
   return { path, top: file.replace(/\.(zip|tar\.gz)$/, "") };
 }
 

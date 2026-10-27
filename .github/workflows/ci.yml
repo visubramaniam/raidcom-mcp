@@ -44,6 +44,6 @@ jobs:
       - name: Build the image and check that it starts and answers /healthz over HTTP
         run: |
           docker build -t raidcom-mcp:ci .
-          docker run -d --name r -p 8361:8361 -e RAIDCOM_TRANSPORT=http -e RAIDCOM_HTTP_HOST=0.0.0.0 -e RAIDCOM_HTTP_OPEN=true -e RAIDCOM_HTTP_BEHIND_TLS_PROXY=true raidcom-mcp:ci
+          docker run -d --name raidcom-ci -p 8361:8361 -e RAIDCOM_TRANSPORT=http -e RAIDCOM_HTTP_HOST=0.0.0.0 -e RAIDCOM_HTTP_OPEN=true -e RAIDCOM_HTTP_BEHIND_TLS_PROXY=true raidcom-mcp:ci
           for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8361/healthz && exit 0; sleep 1; done
-          docker logs r; exit 1
+          docker logs raidcom-ci; exit 1

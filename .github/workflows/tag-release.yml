@@ -1,0 +1,36 @@
+name: Tag release
+
+# Runs when a pull request is merged (any push to main). If package.json holds a version that has no v<version> tag
+# yet, it checks that CHANGELOG.md has a section for it, tags the commit and starts the Release workflow. Merging a
+# pull request that bumps "version" is therefore the whole release process; merges that don't bump it do nothing.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Tag the new version and start the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          tag="v$version"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "$tag already exists; nothing to release"
+            exit 0
+          fi
+          if ! grep -q "^## $version\b" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## $version' section. Move the Unreleased notes under it before releasing."
+            exit 1
+          fi
+          git tag "$tag"
+          git push origin "refs/tags/$tag"
+          # A tag pushed with the workflow token does not start other workflows, so start the release explicitly.
+          gh workflow run release.yml -f tag="$tag"

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- **Build, CI and release pipeline.** CI now also builds the npm package and installs it into an empty folder to check it starts over stdio and HTTP (`npm run package`, `npm run smoke`). Merging a pull request that bumps `version` in `package.json` tags the commit (the Tag release workflow, which requires a matching `CHANGELOG.md` section) and starts the Release workflow: it re-runs the tests, attaches the package and `SHA256SUMS` to a GitHub release, publishes to npm with provenance, lists the version in the MCP Registry and pushes a multi-arch image to ghcr.io.
+
 ## 0.1.0
 
 First version.

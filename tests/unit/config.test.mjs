@@ -25,7 +25,11 @@ test("non-loopback addresses need TLS or a declared proxy", () => {
   assert.throws(() => loadHttpConfig(base), /plain HTTP/);
   const c = loadHttpConfig({ ...base, RAIDCOM_HTTP_BEHIND_TLS_PROXY: "true", RAIDCOM_HTTP_ALLOWED_HOSTS: "a.example.com, b.example.com", RAIDCOM_HTTP_TRUST_PROXY: "true" });
   assert.deepEqual(c.allowedHosts, ["a.example.com", "b.example.com"]);
-  assert.ok(c.trustProxy);
+  assert.equal(c.trustProxy, 1);
+  assert.equal(loadHttpConfig({ ...base, RAIDCOM_HTTP_BEHIND_TLS_PROXY: "true", RAIDCOM_HTTP_TRUST_PROXY: "3" }).trustProxy, 3);
+  assert.equal(loadHttpConfig({ ...base, RAIDCOM_HTTP_BEHIND_TLS_PROXY: "true", RAIDCOM_HTTP_TRUST_PROXY: "false" }).trustProxy, 0);
+  assert.equal(loadHttpConfig({ ...base, RAIDCOM_HTTP_BEHIND_TLS_PROXY: "true" }).trustProxy, 0);
+  assert.throws(() => loadHttpConfig({ ...base, RAIDCOM_HTTP_BEHIND_TLS_PROXY: "true", RAIDCOM_HTTP_TRUST_PROXY: "yes" }), /number of proxies/);
   assert.throws(() => loadHttpConfig({ ...base, RAIDCOM_HTTP_TLS_CERT: "/nonexistent" }), /both RAIDCOM_HTTP_TLS_CERT and RAIDCOM_HTTP_TLS_KEY/);
 });
 

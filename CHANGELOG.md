@@ -17,7 +17,7 @@
 
 - **A request could stop or slow the HTTP server.** A range with numbers above 2^53 made range expansion loop until the process ran out of memory; very long command names took seconds of CPU; large `foreach` and `zip` lists were expanded before the 500-command limit was checked. Ranges now only use exact numbers, lists stop at the limit while they are expanded, and names longer than 64 characters are refused before any matching.
 - **Slow clients could take every HTTP slot.** Clients now have 10 seconds to send headers and 15 to send the whole request, and one address may have at most 8 requests in progress.
-- **Behind a trusted proxy, the rate limit used the client-supplied X-Forwarded-For entry.** It now uses the entry the proxy added (the rightmost), and the limiter remembers at most 10,000 addresses.
+- **Behind a trusted proxy, the rate limit used the client-supplied X-Forwarded-For entry.** `RAIDCOM_HTTP_TRUST_PROXY` now takes the number of proxies in front of the server (`true` still means one), and the client address is the entry that many places from the right, as Express does it. With proxies configured, `/healthz` shows the address the server takes as the caller's, to check the number. The limiter remembers at most 10,000 addresses.
 - **Empty `foreach` or `zip` lists, or a script with no commands,** are errors instead of an empty script reported as success.
 - **`raidcom_check_command`:** the two words after `-login` are always dropped, even when the password starts with `-`; a bare `-I` and a repeated option are reported.
 - **Names such as `constructor` or `__proto__`** in queries, recipe IDs, parameters and option names no longer crash a tool or slip past checks.

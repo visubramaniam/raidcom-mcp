@@ -145,7 +145,7 @@ Which settings are required depends on where it listens:
 - **Loopback only** (the default `127.0.0.1`): a token, or `RAIDCOM_HTTP_OPEN=true`.
 - **Reachable by other machines**: also TLS. Either give the server a certificate (`RAIDCOM_HTTP_TLS_CERT`, `RAIDCOM_HTTP_TLS_KEY`) or put it behind a reverse proxy or load balancer that ends TLS and set `RAIDCOM_HTTP_BEHIND_TLS_PROXY=true`.
 - **A public name**: list it in `RAIDCOM_HTTP_ALLOWED_HOSTS` (for example `raidcom.example.com`), or requests are refused with 403 to defend against DNS rebinding.
-- **Behind a proxy**: set `RAIDCOM_HTTP_TRUST_PROXY=true` so the rate limit sees the real client address, and only then.
+- **Behind a proxy**: set `RAIDCOM_HTTP_TRUST_PROXY` to the number of proxies in front of the server (`true` means one), so the rate limits apply per user. Each proxy adds an entry to `X-Forwarded-For`; the server takes the entry that many places from the right, and ignores entries further left, which the client could have written. Too low a number makes every user look like the same proxy (they then share one rate limit); too high lets a client choose its own address. To check the number, open `/healthz`: behind proxies it shows `client`, which should be your own public address (compare with `curl https://ifconfig.me`). Hosting platforms often have more than one proxy; on Render, try `3` and check `/healthz`.
 
 A public service that anyone may use can run with `RAIDCOM_HTTP_OPEN=true`: the server holds no secrets and cannot reach any array, so the risk is limited to load, which the rate limit and the 256 KB body limit bound.
 

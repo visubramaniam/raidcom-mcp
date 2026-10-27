@@ -34,7 +34,7 @@ Off by default (`RAIDCOM_TRANSPORT=stdio`). When on:
 - The transport is stateless: no sessions, no cookies, nothing stored between requests.
 - Refused requests are logged to stderr with the client address and the reason, never with the token or body.
 
-Running a public instance: use a reverse proxy that ends TLS, set `RAIDCOM_HTTP_ALLOWED_HOSTS` to your name, set `RAIDCOM_HTTP_TRUST_PROXY=true` only when the proxy sets `X-Forwarded-For` itself, and run the container read-only as the `node` user.
+Running a public instance: use a reverse proxy that ends TLS, set `RAIDCOM_HTTP_ALLOWED_HOSTS` to your name, set `RAIDCOM_HTTP_TRUST_PROXY` to the number of proxies in front (`true` for one) only when they set `X-Forwarded-For` themselves, and check `/healthz` shows your own address, and run the container read-only as the `node` user.
 
 ## Automated checks
 

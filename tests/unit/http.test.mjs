@@ -110,9 +110,13 @@ test("an open endpoint must be asked for", async () => {
 
 test("the client address behind a proxy is the entry the proxy added (rightmost), not one the client wrote", () => {
   const req = (xff) => ({ headers: { "x-forwarded-for": xff }, socket: { remoteAddress: "10.0.0.1" } });
-  assert.equal(clientAddress(req("9.9.9.9, 1.2.3.4"), true), "1.2.3.4");
-  assert.equal(clientAddress(req(["9.9.9.9", "5.6.7.8"]), true), "5.6.7.8");
-  assert.equal(clientAddress(req("9.9.9.9, 1.2.3.4"), false), "10.0.0.1");
+  assert.equal(clientAddress(req("9.9.9.9, 1.2.3.4"), 1), "1.2.3.4");
+  assert.equal(clientAddress(req(["9.9.9.9", "5.6.7.8"]), 1), "5.6.7.8");
+  assert.equal(clientAddress(req("9.9.9.9, 1.2.3.4"), 0), "10.0.0.1");
+  // three proxies: client spoof, real client, proxy 1, proxy 2 → the real client
+  assert.equal(clientAddress(req("6.6.6.6, 203.0.113.7, 10.1.1.1, 10.2.2.2"), 3), "203.0.113.7");
+  // fewer entries than proxies: the leftmost
+  assert.equal(clientAddress(req("203.0.113.7"), 3), "203.0.113.7");
 });
 
 test("the rate limiter's memory is bounded", () => {

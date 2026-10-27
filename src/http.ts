@@ -90,14 +90,16 @@ export class RateLimiter {
 }
 
 /**
- * The client's address. Behind a trusted proxy it is the rightmost X-Forwarded-For entry: the one the proxy itself
- * added. Entries to its left come from the client and can say anything.
+ * The client's address. Each proxy appends the address it received the request from, so behind `hops` trusted
+ * proxies the client is the entry `hops` places from the right of X-Forwarded-For: the one the outermost trusted
+ * proxy added. Entries further left come from the client and can say anything. (Same rule as Express's
+ * `trust proxy` set to a number.)
  */
-export function clientAddress(req: IncomingMessage, trustProxy: boolean): string {
-  if (trustProxy) {
+export function clientAddress(req: IncomingMessage, hops: number): string {
+  if (hops > 0) {
     const xff = req.headers["x-forwarded-for"];
-    const last = (Array.isArray(xff) ? xff.at(-1) : xff)?.split(",").at(-1)?.trim();
-    if (last) return last;
+    const entries = (Array.isArray(xff) ? xff.join(",") : (xff ?? "")).split(",").map((s) => s.trim()).filter(Boolean);
+    if (entries.length) return entries[Math.max(0, entries.length - hops)];
   }
   return req.socket.remoteAddress ?? "unknown";
 }
@@ -122,7 +124,10 @@ export async function startHttp(cfg: HttpConfig, createServer: () => Server): Pr
     const path = (req.url ?? "").split("?")[0];
     if (path === HEALTH_PATH && (req.method === "GET" || req.method === "HEAD")) {
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-      return res.end(req.method === "HEAD" ? undefined : JSON.stringify({ status: "ok", version: VERSION }));
+      // Behind proxies, the health check also shows the address the server takes as the caller's, so the number of
+      // proxies (RAIDCOM_HTTP_TRUST_PROXY) can be checked: it should be your own public address.
+      const body = { status: "ok", version: VERSION, ...(cfg.trustProxy ? { client: clientAddress(req, cfg.trustProxy) } : {}) };
+      return res.end(req.method === "HEAD" ? undefined : JSON.stringify(body));
     }
     if (path !== MCP_PATH) return reject(res, 404, `Not found. The MCP endpoint is ${MCP_PATH}.`);
     if (!anyHost && !hosts.has((req.headers.host ?? "").toLowerCase())) return refuse(req, res, 403, "Host not allowed. Add it to RAIDCOM_HTTP_ALLOWED_HOSTS if this name should reach the server.");

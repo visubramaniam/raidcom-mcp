@@ -191,3 +191,7 @@ test("odd request shapes are errors, not crashes", () => {
   assert.match(bad({ command: "get port", options: [1, 2] }), /options must be an object/);
   assert.match(bad({ command: "add host_grp", options: { "-port": "CL1-A", "-host_grp_name": { a: 1 } } }), /not allowed/);
 });
+
+test("a value starting with spaces and a dash is refused too", () => {
+  assert.match(bad({ command: "get port", options: { "-port": [" CL1-A-0", " -IH9"] } }), /starts with "-"/);
+});

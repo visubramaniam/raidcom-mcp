@@ -238,7 +238,8 @@ export function buildScript(catalog: Catalog, req: ScriptRequest, params: Scope 
   };
 
   req.steps.forEach((step, si) => {
-    const label = `step ${si + 1}${step.title ? ` (${step.title})` : ""}`;
+    const title = step && typeof step === "object" && typeof step.title === "string" ? step.title : undefined;
+    const label = `step ${si + 1}${title ? ` (${title})` : ""}`;
     let combos: Array<Record<string, Scalar>>;
     try {
       if (!step || typeof step !== "object" || typeof step.command !== "string") throw new Error("a step needs a command name, such as {\"command\": \"add ldev\", \"options\": {...}}");
@@ -255,7 +256,7 @@ export function buildScript(catalog: Catalog, req: ScriptRequest, params: Scope 
     }
     // a step that starts with a command that is not asynchronous first waits for the pending asynchronous ones
     if (catalog.find(step.command) && !catalog.find(step.command)!.async) flushAsync();
-    if (step.title) lines.push("", `# ${step.title.replace(/[\r\n]+/g, " ")}`);
+    if (title) lines.push("", `# ${title.replace(/[\r\n]+/g, " ")}`);
     for (const combo of combos) {
       const scope: Scope = { ...params, ...combo };
       const options = fillOptions(step.options, scope);
@@ -266,7 +267,7 @@ export function buildScript(catalog: Catalog, req: ScriptRequest, params: Scope 
         continue;
       }
       for (const w of r.warnings) if (!warnings.includes(`${label}: ${w}`)) warnings.push(`${label}: ${w}`);
-      commands.push({ step: si + 1, title: step.title, command: r.command!, readOnly: !!r.readOnly, destructive: !!r.destructive, async: !!r.async });
+      commands.push({ step: si + 1, title, command: r.command!, readOnly: !!r.readOnly, destructive: !!r.destructive, async: !!r.async });
       if (!r.async && pendingAsync) flushAsync();
       lines.push(`run ${r.command}`);
       if (r.async) pendingAsync = true;

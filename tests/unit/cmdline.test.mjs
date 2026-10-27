@@ -70,3 +70,10 @@ test("pair types and instance numbers from a command line still pass the global 
   const p = parseCommandLine(catalog, "raidcom get ldev -ldev_id 1 -ISI3");
   assert.equal(build(catalog, p.request).command, "raidcom get ldev -ldev_id 1 -ISI3");
 });
+
+test("repeated global options are reported, and a non-number unit is shown as written", () => {
+  assert.match(parseCommandLine(catalog, "raidcom get ldev -ldev_id 1 -I0 -I1").warnings.join(), /given twice/);
+  assert.match(parseCommandLine(catalog, "raidcom get ldev -ldev_id 1 -s 512345 -s 512346").warnings.join(), /given twice/);
+  const p = parseCommandLine(catalog, "raidcom get ldev -ldev_id 1 -u abc");
+  assert.match(build(catalog, p.request).errors.join(), /"abc"/);
+});

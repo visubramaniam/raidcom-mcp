@@ -75,6 +75,7 @@ export function parseCommandLine(catalog: Catalog, line: string): ParsedLine {
     if (!own) {
       const mi = instanceFlag.exec(w);
       if (mi) {
+        if (global.instance !== undefined) warnings.push(`${w}: the instance was given twice; the last one is used`);
         if (mi[2] === undefined) errors.push(`${w} needs an instance number, for example -I0 or -IH0.`);
         else global.instance = Number(mi[2]);
         if (mi[1]) global.pair_type = mi[1] as GlobalOptions["pair_type"];
@@ -83,8 +84,10 @@ export function parseCommandLine(catalog: Catalog, line: string): ParsedLine {
       }
       const next = rest[i + 1];
       const hasValue = next !== undefined && !/^-[A-Za-z]/.test(next);
+      if ((w === "-s" || w === "-u") && hasValue && (w === "-s" ? global.serial : global.unit) !== undefined) warnings.push(`${w} was given twice; the last value is used`);
       if (w === "-s" && hasValue) { global.serial = next; i += 2; continue; }
-      if (w === "-u" && hasValue) { global.unit = Number(next); i += 2; continue; }
+      // a non-number stays text, so the error shows what was written
+      if (w === "-u" && hasValue) { global.unit = (/^\d+$/.test(next) ? Number(next) : next) as unknown as number; i += 2; continue; }
       if (w === "-fx") { global.fx = true; i++; continue; }
       if (w === "-nomsg") { global.nomsg = true; i++; continue; }
       if (w === "-checkmode" && hasValue) { global.checkmode = next as "precheck"; i += 2; continue; }

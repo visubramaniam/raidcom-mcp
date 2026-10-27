@@ -190,3 +190,8 @@ test("create-dp-pool: one threshold without the other is an error, not silently 
   assert.match(r.errors[0], /together/);
   assert.ok(buildRecipe(catalog, "create-dp-pool", recipes["create-dp-pool"], base).ok);
 });
+
+test("a step that is not an object, or has a non-text title, is an error", () => {
+  assert.match(buildScript(catalog, { steps: [null] }).errors[0], /needs a command name/);
+  assert.ok(buildScript(catalog, { steps: [{ title: 5, command: "get port" }] }).ok);
+});

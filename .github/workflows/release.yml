@@ -184,8 +184,10 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           VERSION: ${{ needs.packages.outputs.version }}
         run: |
+          set -o pipefail
           # "latest" only moves forward: rebuilding an older release doesn't take it back
           newest=$(git ls-remote --tags --refs "https://github.com/$GITHUB_REPOSITORY" 'v*' | sed 's#.*refs/tags/v##' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          if [ -z "$newest" ]; then echo "::error::could not list the release tags"; exit 1; fi
           latest=""; [ "$newest" = "$VERSION" ] && latest=true
           tags="$GHCR_IMAGE:$VERSION${latest:+,$GHCR_IMAGE:latest}"
           if [ -n "$DOCKERHUB_USERNAME" ]; then
@@ -231,4 +233,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.packages.outputs.version }}
           BRANCH: ${{ github.event.repository.default_branch }}
-        run: gh workflow run plugin-release.yml --ref "$BRANCH" -f version="$VERSION"
+        run: |
+          set -o pipefail
+          # only the newest release moves the plugin; rebuilding an older release leaves it alone
+          newest=$(git ls-remote --tags --refs "https://github.com/$GH_REPO" 'v*' | sed 's#.*refs/tags/v##' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          if [ "$newest" != "$VERSION" ]; then echo "::notice::$VERSION is not the newest release ($newest); the plugin is not moved"; exit 0; fi
+          gh workflow run plugin-release.yml --ref "$BRANCH" -f version="$VERSION"

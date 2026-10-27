@@ -212,7 +212,7 @@ function checkValues(flag: string, values: string[], ctx: Ctx): string[] {
     }
     if (literals.some((l) => l.toLowerCase() === v.toLowerCase())) continue;
     // raidcom would read a value such as -IH9 as an option of its own
-    if (/^-[A-Za-z]/.test(v)) {
+    if (/^\s*-[A-Za-z]/.test(v)) {
       errors.push(`${flag}: value "${v}" starts with "-", so raidcom would read it as an option. Give each option separately in \`options\`.`);
       continue;
     }

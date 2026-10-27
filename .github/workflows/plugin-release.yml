@@ -59,7 +59,11 @@ jobs:
           if ! printf '%s' "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then echo "::error::\"$version\" is not a version such as 0.1.2"; exit 1; fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           current=$(node -p 'require("./plugin/package.json").dependencies["raidcom-mcp"]')
-          if [ "$current" = "$version" ]; then echo "plugin already at $version"; echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+          if [ "$current" = "$version" ]; then echo "plugin already at $version"; echo "skip=true" >> "$GITHUB_OUTPUT"
+          # never move the plugin back to an older server version
+          elif [ "$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -1)" = "$current" ]; then
+            echo "::notice::the plugin is at $current, newer than $version; not moving it back"; echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Wait for the version on npm
         if: steps.v.outputs.skip != 'true'
         env:

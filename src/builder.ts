@@ -212,8 +212,10 @@ function checkValues(flag: string, values: string[], ctx: Ctx): string[] {
     if (literals.some((l) => l.toLowerCase() === v.toLowerCase())) continue;
     if (LDEV_FLAGS.has(flag)) {
       const parts = v.split("-");
-      const nums = parts.map(num);
-      if (parts.length > 2 || nums.some(Number.isNaN)) warnings.push(`${flag}: "${v}" is not a decimal number, 0x hex number or range such as 100-110`);
+      // mainframe notation: CU:LDEV in hex, e.g. dd:0f (CU 0xdd, LDEV 0x0f) is LDEV number 0xdd0f
+      const cuLdev = (x: string) => (/^[0-9a-f]{1,2}:[0-9a-f]{2}$/i.test(x) ? parseInt(x.replace(":", ""), 16) : Number.NaN);
+      const nums = parts.map((x) => (x.includes(":") ? cuLdev(x) : num(x)));
+      if (parts.length > 2 || nums.some(Number.isNaN)) warnings.push(`${flag}: "${v}" is not a decimal number, 0x hex number, CU:LDEV such as dd:0f, or range such as 100-110`);
       else nums.forEach((n) => range("LDEV ID", n, limits.ldev));
     } else if (flag === "-lun_id") {
       const n = num(v);

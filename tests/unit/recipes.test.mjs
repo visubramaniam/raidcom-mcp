@@ -20,6 +20,7 @@ const SAMPLE = {
   "inventory-report": {},
   "create-copy-group": { primary_group: "pvol", primary_ldevs: ["100-101"], secondary_group: "svol", secondary_ldevs: ["200-201"], copy_group: "cg1", device_prefix: "dev" },
   "check-async-result": {},
+  "create-mainframe-pool": { parity_grp_id: "1-2", drive_locations: ["0-1", "1-1", "2-1", "3-1", "4-1", "5-1", "6-1", "7-1"], raid_type: "6D2P", emulation: "3390-V", ldev_ids: ["dd:00-dd:0f"], ldev_capacity: 912350208, ssid: "0014", pool_id: 1, pool_name: "MF_Pool" },
 };
 
 test("every recipe has sample parameters and builds a valid script", () => {
@@ -105,4 +106,28 @@ test("destructive scripts carry a warning note", () => {
   const r = buildRecipe(catalog, "unmap-and-delete-volumes", recipes["unmap-and-delete-volumes"], SAMPLE["unmap-and-delete-volumes"]);
   assert.ok(r.ok, r.errors.join(";"));
   assert.ok(r.notes.some((n) => /delete or initialize/.test(n)));
+});
+
+test("mainframe pool: hex LDEV ranges, SSID, environment variable", () => {
+  const r = buildRecipe(catalog, "create-mainframe-pool", recipes["create-mainframe-pool"], SAMPLE["create-mainframe-pool"], { global: { instance: 500 } });
+  assert.ok(r.ok, r.errors.join(";"));
+  assert.equal(r.warnings.length, 0, r.warnings.join(";"));
+  const count = (re) => r.commands.filter((c) => re.test(c.command)).length;
+  assert.equal(count(/^raidcom modify ldev -ldev_id dd:0[0-9a-f] -ssid 0014 /), 16);
+  assert.equal(count(/^raidcom add ldev .* -emulation 3390-V -parity_grp_id 1-2 /), 16);
+  assert.equal(count(/^raidcom initialize ldev -operation qfmt /), 16);
+  assert.ok(r.commands.some((c) => /^raidcom add parity_grp -parity_grp_id 1-2 -drive_location 0-1 1-1 2-1 3-1 4-1 5-1 6-1 7-1 -emulation 3390-V -raid_type 6D2P -I500$/.test(c.command)));
+  assert.ok(r.commands.some((c) => /^raidcom add dp_pool -pool_id 1 -pool_name MF_Pool -ldev_id dd:00 dd:01 .* dd:0f -I500$/.test(c.command)));
+  assert.ok(r.script.split("\n").includes("export HORCC_DRIVEOPERATION=1"));
+  // without an SSID the modify step is left out
+  const { ssid, ...rest } = SAMPLE["create-mainframe-pool"];
+  const n = buildRecipe(catalog, "create-mainframe-pool", recipes["create-mainframe-pool"], rest);
+  assert.ok(n.ok);
+  assert.ok(!n.commands.some((c) => /-ssid/.test(c.command)));
+});
+
+test("expandList handles CU:LDEV ranges", () => {
+  assert.deepEqual(expandList("dd:fe-de:01"), ["dd:fe", "dd:ff", "de:00", "de:01"]);
+  assert.deepEqual(expandList(["DD:00-DD:01", "dd:05"]), ["DD:00", "DD:01", "dd:05"]);
+  assert.throws(() => expandList("dd:05-dd:01"), /backwards/);
 });

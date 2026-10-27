@@ -139,3 +139,16 @@ test("options that were given twice, and unusable instance settings", () => {
   assert.ok(r.warnings.some((w) => /twice/.test(w)));
   assert.ok(build(catalog, { command: "get port", global: { pair_type: "H" } }).warnings.some((w) => /needs an instance/.test(w)));
 });
+
+test("mainframe CU:LDEV notation is accepted and range-checked", () => {
+  assert.equal(ok({ command: "get ldev", options: { "-ldev_id": "dd:0f" }, global: { instance: 500 } }).command, "raidcom get ldev -ldev_id dd:0f -I500");
+  assert.equal(ok({ command: "modify ldev", options: { "-ldev_id": "dd:00", "-ssid": "0014" } }).command, "raidcom modify ldev -ldev_id dd:00 -ssid 0014");
+  assert.equal(build(catalog, { command: "get ldev", options: { "-ldev_id": "dd:0f" } }).warnings.length, 0);
+  assert.match(bad({ command: "get ldev", options: { "-ldev_id": "ff:ff" } }), /outside 0 to 65279/);
+  assert.ok(build(catalog, { command: "get ldev", options: { "-ldev_id": "dd:zz" } }).warnings.some((w) => /CU:LDEV/.test(w)));
+});
+
+test("add parity_grp accepts -emulation for mainframe parity groups", () => {
+  const r = ok({ command: "add parity_grp", options: { "-parity_grp_id": "1-2", "-drive_location": ["0-1", "1-1"], "-emulation": "3390-V", "-raid_type": "6D2P" } });
+  assert.match(r.command, /-emulation 3390-V/);
+});

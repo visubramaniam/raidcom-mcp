@@ -33,6 +33,8 @@ export interface Recipe {
   params: Record<string, ParamSpec>;
   steps: Step[];
   notes: string[];
+  /** Environment variables the script exports before the first command, e.g. HORCC_DRIVEOPERATION=1. */
+  env?: Record<string, string>;
 }
 
 export interface BuiltCommand {
@@ -55,6 +57,8 @@ export interface ScriptRequest {
   lock_resource?: boolean;
   /** A heading comment for the script. */
   description?: string;
+  /** Environment variables to export at the top of the script. */
+  env?: Record<string, string>;
 }
 
 export interface ScriptResult {
@@ -80,6 +84,20 @@ export function expandList(input: Scalar | Scalar[]): Scalar[] {
       continue;
     }
     for (const part of String(item).split(/[,\s]+/).filter(Boolean)) {
+      // CU:LDEV ranges such as dd:00-dd:0f, as used for mainframe volumes: expanded in the same format
+      const h = /^([0-9a-f]{2}):([0-9a-f]{2})-([0-9a-f]{2}):([0-9a-f]{2})$/i.exec(part);
+      if (h) {
+        const a = parseInt(h[1] + h[2], 16);
+        const b = parseInt(h[3] + h[4], 16);
+        if (b < a) throw new Error(`range "${part}" runs backwards`);
+        if (b - a + 1 > MAX_COMMANDS) throw new Error(`range "${part}" has more than ${MAX_COMMANDS} values`);
+        const lower = part === part.toLowerCase();
+        for (let n = a; n <= b; n++) {
+          const x = n.toString(16).padStart(4, "0");
+          out.push(`${x.slice(0, 2)}:${x.slice(2)}`[lower ? "toLowerCase" : "toUpperCase"]());
+        }
+        continue;
+      }
       const m = /^(\d+)-(\d+)$/.exec(part);
       if (m) {
         const a = Number(m[1]);
@@ -229,6 +247,10 @@ export function buildScript(catalog: Catalog, req: ScriptRequest, params: Scope 
   if (req.description) head.push(`# ${req.description.replace(/[\r\n]+/g, " ")}`);
   head.push("# Review before running. Run it on a host with CCI installed and a running HORCM instance.", "");
   if (req.global?.instance !== undefined) head.push(`export HORCMINST=${req.global.instance}`);
+  for (const [k, v] of Object.entries(req.env ?? {})) {
+    if (!/^[A-Z][A-Z0-9_]*$/.test(k) || !/^[A-Za-z0-9_.:-]*$/.test(v)) throw new Error(`unsafe environment variable ${k}`);
+    head.push(`export ${k}=${v}`);
+  }
   head.push('run() { "$@" || { echo "FAILED: $*" >&2; exit 1; }; }', "");
   if (req.login) head.push(`# Set RAIDCOM_USER and RAIDCOM_PASSWORD in your shell; they are not part of this script.`, `run raidcom -login "$RAIDCOM_USER" "$RAIDCOM_PASSWORD"${inst}`);
   if (req.lock_resource) head.push(`run raidcom lock resource${inst}`);
@@ -272,6 +294,6 @@ export function buildRecipe(catalog: Catalog, id: string, recipe: Recipe, given:
   const scope = recipeScope(recipe, given, errors);
   if (errors.length) return { ok: false, recipe: id, commands: [], errors, warnings: [], notes: [] };
   const steps = recipe.steps.filter((s) => !s.when || scope[s.when] !== undefined);
-  const r = buildScript(catalog, { ...opts, steps, description: opts.description ?? recipe.title }, scope);
+  const r = buildScript(catalog, { ...opts, steps, description: opts.description ?? recipe.title, env: recipe.env }, scope);
   return { ...r, recipe: id, notes: [...r.notes, ...recipe.notes] };
 }

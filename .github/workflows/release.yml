@@ -1,8 +1,10 @@
 name: Release
 
-# Builds the npm package for a v* tag, tests it as installed, attaches it to the tag's GitHub release (created from the
-# tag's CHANGELOG.md section), publishes it to npm unless that version is already there, lists it in the MCP Registry
-# and pushes the multi-arch Docker image to ghcr.io (and Docker Hub when its credentials are set). The Tag release workflow starts it when a merged pull request
+# Builds every package for a v* tag: the npm package, the Claude Desktop extension (.mcpb), standalone packages for
+# macOS, Linux and Windows (with Node.js bundled) and the command-builder skill zip. Tests them, attaches them to the
+# tag's GitHub release (created from the tag's CHANGELOG.md section), publishes the npm package unless that version is
+# already there, lists it in the MCP Registry, pushes the multi-arch Docker image to ghcr.io (and Docker Hub when its
+# credentials are set) and tests the Windows packages on Windows x64 and arm64 machines (windows.yml). The Tag release workflow starts it when a merged pull request
 # bumps the version; pushing a v* tag by hand or running it for an existing tag also works.
 on:
   push:
@@ -54,10 +56,15 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm test
       - run: npm run package
-      - name: Smoke-test the package as installed
+      - name: Smoke-test the npm package as installed
         run: node tests/smoke/package-smoke.mjs "release/raidcom-mcp-${{ steps.version.outputs.version }}.tgz" "${{ steps.version.outputs.version }}"
+      - name: Smoke-test the standalone Linux package
+        run: |
+          version=${{ steps.version.outputs.version }}
+          tar -xzf "release/raidcom-mcp-$version-linux-x64.tar.gz" -C release
+          node tests/smoke/standalone-smoke.mjs "release/raidcom-mcp-$version-linux-x64" "$version"
 
-      - name: Attach the package to the GitHub release
+      - name: Attach the packages to the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
@@ -67,7 +74,7 @@ jobs:
             [ -s notes.md ] || echo "Release $VERSION" > notes.md
             gh release create "$TAG" --verify-tag --title "$VERSION" --notes-file notes.md
           fi
-          gh release upload "$TAG" release/*.tgz release/SHA256SUMS --clobber
+          gh release upload "$TAG" release/*.tgz release/*.mcpb release/*.tar.gz release/*.zip release/SHA256SUMS --clobber
 
   npm:
     # Publishes the exact .tgz attached to the release, using npm trusted publishing: npm checks this workflow's OIDC

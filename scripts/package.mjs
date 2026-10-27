@@ -1,19 +1,213 @@
 #!/usr/bin/env node
-// Builds the release artefacts into release/: the npm package (.tgz) and SHA256SUMS. The package is smoke-tested
-// by tests/smoke/package-smoke.mjs before it is attached to a release or published.
+// Builds the release packages into release/ from an already-built dist/ (run `npm run package`):
+//
+//   raidcom-mcp-<version>.tgz                    npm package: `npm install -g <file or URL>` (needs Node.js 22.19+)
+//   raidcom-mcp-<version>.mcpb                   Claude Desktop extension: double-click to install
+//   raidcom-mcp-<version>-<platform>.tar.gz|zip  standalone: the server plus a Node.js runtime, nothing to install
+//   raidcom-command-builder-<version>.zip           the command-builder skill, to upload in Claude Desktop or claude.ai
+//   SHA256SUMS                                  checksums of the files above
+//
+// Options:
+//   --only npm,mcpb,standalone,skill   build only these kinds (default: all)
+//   --targets linux-x64,...      standalone platforms (default: all in TARGETS)
+// NODE_RUNTIME_VERSION overrides the Node.js version bundled in the standalone packages.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "release");
-rmSync(out, { recursive: true, force: true });
-mkdirSync(out);
-execFileSync("npm", ["pack", "--pack-destination", out, "--silent"], { cwd: root, stdio: ["ignore", "inherit", "inherit"] });
-const sums = readdirSync(out)
-  .filter((f) => f.endsWith(".tgz"))
-  .map((f) => `${createHash("sha256").update(readFileSync(join(out, f))).digest("hex")}  ${f}`);
-writeFileSync(join(out, "SHA256SUMS"), sums.join("\n") + "\n");
-console.log(sums.join("\n"));
+const stage = join(out, ".stage");
+const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+const NODE_VERSION = process.env.NODE_RUNTIME_VERSION || "24.21.0";
+// Node.js release signing keys (github.com/nodejs/release-keys), pinned to a commit. If a release of NODE_VERSION
+// fails its signature check because a new releaser signed it, move this to a newer commit of that repository.
+const NODE_KEYRING = "https://raw.githubusercontent.com/nodejs/release-keys/481637f813e912c4aa3622d7964ab426c97b8e8d/gpg-only-active-keys/pubring.kbx";
+// The Claude Desktop extension packer, run with npx at build time.
+const MCPB = "@anthropic-ai/mcpb@2.1.2";
+
+// Standalone platforms, named as Node.js names its downloads.
+const TARGETS = ["darwin-arm64", "darwin-x64", "linux-x64", "linux-arm64", "win-x64", "win-arm64"];
+// Plugin skills also packaged on their own, for Claude Desktop and claude.ai's skill upload. Uploads allow a name of
+// up to 64 lowercase letters, digits and hyphens, and a description of up to 200 characters.
+const SKILLS = ["raidcom-command-builder"];
+// Files copied into every package besides dist/ and spec/.
+const APP_FILES = ["package.json", "package-lock.json", "LICENSE", "README.md", "INSTALL.md", "CHANGELOG.md"];
+
+const { values: opts } = parseArgs({
+  options: { only: { type: "string", default: "npm,mcpb,standalone,skill" }, targets: { type: "string", default: TARGETS.join(",") } },
+});
+const kinds = new Set(opts.only.split(","));
+const targets = opts.targets.split(",");
+for (const t of targets) if (!TARGETS.includes(t)) throw new Error(`Unknown target ${t}; expected one of ${TARGETS.join(", ")}`);
+
+const run = (cmd, args, cwd = root) => execFileSync(cmd, args, { cwd, stdio: ["ignore", "inherit", "inherit"], env: { ...process.env, COPYFILE_DISABLE: "1" } });
+const log = (msg) => console.log(`[package] ${msg}`);
+const sha256 = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
+
+if (!existsSync(join(root, "dist", "index.js"))) throw new Error("dist/index.js is missing; run `npm run build` first");
+
+// Start from an empty folder.
+mkdirSync(out, { recursive: true });
+for (const name of readdirSync(out)) rmSync(join(out, name), { recursive: true, force: true });
+
+/** dist/, spec/, the files above and production node_modules, as the server runs them. */
+function stageApp() {
+  const app = join(stage, "app");
+  mkdirSync(app, { recursive: true });
+  for (const f of APP_FILES) copyFileSync(join(root, f), join(app, f));
+  cpSync(join(root, "dist"), join(app, "dist"), { recursive: true });
+  cpSync(join(root, "spec"), join(app, "spec"), { recursive: true });
+  run("npm", ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--loglevel=error"], app);
+  return app;
+}
+
+function buildNpm() {
+  log("npm package");
+  run("npm", ["pack", "--pack-destination", out, "--loglevel=error"]);
+}
+
+/** One skill from plugin/skills as a zip whose top level is the skill's folder, as the skill upload expects. */
+function buildSkill(name) {
+  log(`skill ${name}`);
+  const src = join(root, "plugin", "skills", name);
+  const head = readFileSync(join(src, "SKILL.md"), "utf8").match(/^---\n([\s\S]*?)\n---\n/);
+  if (!head) throw new Error(`${name}/SKILL.md has no frontmatter`);
+  const field = (key) => (head[1].match(new RegExp(`^${key}: (.*)$`, "m")) || [])[1]?.trim();
+  if (field("name") !== name || !/^[a-z0-9-]{1,64}$/.test(name)) throw new Error(`${name}/SKILL.md: name must be "${name}", up to 64 of a-z, 0-9 and -`);
+  const description = field("description") || "";
+  if (!description || description.length > 200) throw new Error(`${name}/SKILL.md: description is ${description.length} characters; the upload allows 1 to 200`);
+  const dir = join(stage, "skills", name);
+  cpSync(src, dir, { recursive: true, filter: (f) => !/(^|[\\/])\.[^\\/]+$/.test(f.slice(src.length)) });
+  copyFileSync(join(root, "LICENSE"), join(dir, "LICENSE"));
+  run("zip", ["-qrX", join(out, `${name}-${version}.zip`), name], join(stage, "skills"));
+}
+
+function buildMcpb(app) {
+  log("Claude Desktop extension");
+  const dir = join(stage, "mcpb");
+  cpSync(app, dir, { recursive: true });
+  const manifest = JSON.parse(readFileSync(join(root, "packaging", "mcpb", "manifest.json"), "utf8"));
+  writeFileSync(join(dir, "manifest.json"), JSON.stringify({ ...manifest, version }, null, 2) + "\n");
+  // mcpb runs through npx, pinned, rather than as a dev dependency: its own dependencies (node-forge for signing,
+  // tmp for interactive prompts) have security advisories, and `mcpb pack` uses neither.
+  run("npx", ["--yes", MCPB, "pack", dir, join(out, `raidcom-mcp-${version}.mcpb`)]);
+}
+
+const NODE_BASE = `https://nodejs.org/dist/v${NODE_VERSION}`;
+
+/** Downloads a URL with curl into a new private folder and returns the file's path. Nothing is read back until it has been checked. */
+function download(url) {
+  const dir = mkdtempSync(join(tmpdir(), "raidcom-download-"));
+  const file = join(dir, "download");
+  execFileSync("curl", ["--fail", "--silent", "--show-error", "--location", "--retry", "3", "--output", file, url], { stdio: ["ignore", "inherit", "inherit"] });
+  return file;
+}
+
+function hasGpgv() {
+  try {
+    execFileSync("gpgv", ["--version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+let nodeSumsLoaded;
+/** The Node.js release's SHASUMS256.txt, with its signature checked against the Node.js release keys. */
+const nodeSums = () => (nodeSumsLoaded ??= loadNodeSums());
+async function loadNodeSums() {
+  const sumsFile = download(`${NODE_BASE}/SHASUMS256.txt`);
+  if (!hasGpgv()) {
+    // CI must check it; a local build without GnuPG only warns.
+    if (process.env.CI) throw new Error("gpgv (GnuPG) is needed to check the signature of the Node.js release's SHASUMS256.txt");
+    log("warning: gpgv not found, so the signature of the Node.js release's SHASUMS256.txt is not checked; install GnuPG to check it");
+    return readFileSync(sumsFile, "utf8");
+  }
+  const sigFile = download(`${NODE_BASE}/SHASUMS256.txt.sig`);
+  const keyring = download(NODE_KEYRING);
+  try {
+    execFileSync("gpgv", ["--keyring", keyring, sigFile, sumsFile], { stdio: ["ignore", "ignore", "pipe"] });
+  } catch (e) {
+    throw new Error(`The Node.js ${NODE_VERSION} SHASUMS256.txt failed its signature check:\n${e.stderr}`);
+  }
+  log(`Node.js ${NODE_VERSION} SHASUMS256.txt: signature verified`);
+  return readFileSync(sumsFile, "utf8");
+}
+
+/** Downloads a Node.js release archive and checks it against the release's signed SHASUMS256.txt before it is used. */
+async function nodeArchive(target) {
+  const file = `node-v${NODE_VERSION}-${target}.${target.startsWith("win") ? "zip" : "tar.gz"}`;
+  const sums = await nodeSums();
+  const expected = sums.split("\n").find((l) => l.endsWith(`  ${file}`))?.split(" ")[0];
+  if (!expected) throw new Error(`${file} is not listed in ${NODE_BASE}/SHASUMS256.txt`);
+  log(`downloading ${file}`);
+  const path = download(`${NODE_BASE}/${file}`);
+  if (sha256(path) !== expected) throw new Error(`${file} does not match its published SHA-256`);
+  return { path, top: file.replace(/\.(zip|tar\.gz)$/, "") };
+}
+
+const UNIX_LAUNCHER = `#!/bin/sh
+# Starts raidcom-mcp with the Node.js runtime bundled next to it. Works through symlinks,
+# e.g. ln -s /opt/raidcom-mcp/bin/raidcom-mcp /usr/local/bin/raidcom-mcp
+self=$0
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case $link in /*) self=$link ;; *) self=$(dirname "$self")/$link ;; esac
+done
+here=$(cd "$(dirname "$self")/.." && pwd)
+exec "$here/runtime/node" "$here/dist/index.js" "$@"
+`;
+
+const WINDOWS_LAUNCHER = `@echo off\r
+rem Starts raidcom-mcp with the Node.js runtime bundled next to it.\r
+"%~dp0..\\runtime\\node.exe" "%~dp0..\\dist\\index.js" %*\r
+`;
+
+async function buildStandalone(app, target) {
+  log(`standalone ${target} (Node.js ${NODE_VERSION})`);
+  const windows = target.startsWith("win");
+  const name = `raidcom-mcp-${version}-${target}`;
+  const dir = join(stage, name);
+  cpSync(app, dir, { recursive: true });
+  mkdirSync(join(dir, "runtime"));
+  mkdirSync(join(dir, "bin"));
+
+  const { path, top } = await nodeArchive(target);
+  const tmp = join(stage, `node-${target}`);
+  mkdirSync(tmp);
+  const exe = windows ? "node.exe" : "node";
+  if (windows) run("unzip", ["-q", path, `${top}/node.exe`, `${top}/LICENSE`, "-d", tmp]);
+  else run("tar", ["-xzf", path, "-C", tmp, `${top}/bin/node`, `${top}/LICENSE`]);
+  copyFileSync(join(tmp, top, windows ? "" : "bin", exe), join(dir, "runtime", exe));
+  copyFileSync(join(tmp, top, "LICENSE"), join(dir, "runtime", "LICENSE"));
+  chmodSync(join(dir, "runtime", exe), 0o755);
+
+  if (windows) {
+    writeFileSync(join(dir, "bin", "raidcom-mcp.cmd"), WINDOWS_LAUNCHER);
+    run("zip", ["-qr", join(out, `${name}.zip`), name], stage);
+  } else {
+    writeFileSync(join(dir, "bin", "raidcom-mcp"), UNIX_LAUNCHER);
+    chmodSync(join(dir, "bin", "raidcom-mcp"), 0o755);
+    // macOS tar would otherwise store extended attributes that GNU tar warns about on every file.
+    const noXattrs = process.platform === "darwin" ? ["--no-xattrs", "--no-mac-metadata"] : [];
+    run("tar", [...noXattrs, "-czf", join(out, `${name}.tar.gz`), "-C", stage, name]);
+  }
+}
+
+if (kinds.has("npm")) buildNpm();
+if (kinds.has("skill")) for (const s of SKILLS) buildSkill(s);
+if (kinds.has("mcpb") || kinds.has("standalone")) {
+  const app = stageApp();
+  if (kinds.has("mcpb")) buildMcpb(app);
+  if (kinds.has("standalone")) for (const t of targets) await buildStandalone(app, t);
+}
+rmSync(stage, { recursive: true, force: true });
+
+const files = readdirSync(out).filter((f) => !f.startsWith(".") && statSync(join(out, f)).isFile()).sort();
+writeFileSync(join(out, "SHA256SUMS"), files.map((f) => `${sha256(join(out, f))}  ${f}\n`).join(""));
+for (const f of files) log(`release/${f}  ${(statSync(join(out, f)).size / 1e6).toFixed(1)} MB`);

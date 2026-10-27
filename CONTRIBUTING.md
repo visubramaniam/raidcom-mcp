@@ -57,6 +57,10 @@ Add it to `spec/recipes.json` in your own words and add sample parameters to `te
 
 Edit `spec/limits.json` from the appendices of the Command Reference for that model, and add a test in `tests/unit/builder.test.mjs`.
 
+### Changing the Claude Code plugin
+
+The plugin in `plugin/` installs the server from a pinned npm version, so it trails the server by one release. Changes to its skill (`plugin/skills/`) are welcome at any time. After each server release, the Plugin release workflow opens a pull request that moves the plugin to it; merging that pull request tags `plugin-v<version>` and creates the plugin's GitHub release. The bump job opens its pull request with the `PLUGIN_PR_TOKEN` repository secret (a personal access token with Contents and Pull requests write access to this repository) so that CI runs on it; without the secret it uses the workflow token, which needs the setting "Allow GitHub Actions to create and approve pull requests", and CI starts only after the pull request is closed and reopened. Run the workflow by hand (Actions → Plugin release) to move to a specific version.
+
 ## Releases
 
 A release is a pull request: bump `version` in `package.json` and `server.json`, and move the `Unreleased` notes under a `## <version> — <date>` heading in `CHANGELOG.md`. When it is merged, the Tag release workflow tags `v<version>` and starts the Release workflow (GitHub release, npm, MCP Registry, ghcr.io image). Before the first release, configure npm trusted publishing for `raidcom-mcp` (workflow `release.yml`) on npmjs.com. To rebuild an existing release, run the Release workflow with its tag.

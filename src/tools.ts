@@ -158,7 +158,7 @@ export function tools(): Tool[] {
     {
       name: "raidcom_list_recipes",
       description:
-        "Ready-made workflows: provision volumes to an FC, iSCSI or NVMe/TCP host, create or grow a pool, extend or delete volumes, create a command device, reclaim zero pages, read-only inventory, copy groups. " +
+        "Ready-made workflows: provision volumes to an FC, iSCSI or NVMe/TCP host, create or grow a pool, create a mainframe (3390) pool, extend or delete volumes, create a command device, reclaim zero pages, read-only inventory, copy groups. " +
         "With no arguments lists them. With `recipe`, shows its parameters and steps. With `query`, ranks recipes by keyword. Use raidcom_build_recipe to turn one into a script.",
       inputSchema: {
         type: "object",

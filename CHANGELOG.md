@@ -5,13 +5,10 @@
 ### Added
 
 - **Security scanning in CI.** CodeQL (security-extended queries) runs on every pull request, push to `main` and weekly. Dependency review fails a pull request that adds a vulnerable dependency. A Security audit workflow runs `npm audit` on the runtime dependencies and a Trivy scan of the Docker image on pull requests that touch dependencies or the Dockerfile, and weekly.
-
-### Added
-
+- **Recipe `create-mainframe-pool`:** creates a mainframe parity group (always `-emulation 3390-V`, not a parameter), assigns an SSID, creates and quick-formats 3390 LDEVs and makes them a DP pool, with `HORCC_DRIVEOPERATION=1` exported at the top of the script. Recipes can now export environment variables (`env`).
+- **CU:LDEV notation** (`dd:0f`) is accepted for LDEV IDs and range-checked, and ranges such as `dd:00-dd:0f` expand in recipes and scripts.
+- `add parity_grp` accepts `-emulation`, which the manual's syntax line leaves out but mainframe-capable systems use. The generator records it as an addition.
 - **The Release workflow also pushes the image to Docker Hub** (`subramaniamv/raidcom-mcp`) when the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets are set; otherwise it pushes to ghcr.io only.
-
-### Added
-
 - **Build, CI and release pipeline.** CI now also builds the npm package and installs it into an empty folder to check it starts over stdio and HTTP (`npm run package`, `npm run smoke`). Merging a pull request that bumps `version` in `package.json` tags the commit (the Tag release workflow, which requires a matching `CHANGELOG.md` section) and starts the Release workflow: it re-runs the tests, attaches the package and `SHA256SUMS` to a GitHub release, publishes to npm with provenance, lists the version in the MCP Registry and pushes a multi-arch image to ghcr.io.
 
 ## 0.1.0

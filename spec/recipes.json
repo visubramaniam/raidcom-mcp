@@ -4,24 +4,141 @@
     "provision-fc-volumes": {
       "title": "Provision volumes to a Fibre Channel host",
       "summary": "Create DP volumes in a pool, create a host group on one or more ports, set its host mode, register the host's WWNs and map the volumes to it.",
-      "keywords": ["provision", "new server", "add host", "fibre channel", "fc", "wwn", "host group", "map volumes", "present lun"],
+      "keywords": [
+        "provision",
+        "new server",
+        "add host",
+        "fibre channel",
+        "fc",
+        "wwn",
+        "host group",
+        "map volumes",
+        "present lun"
+      ],
       "params": {
-        "pool": { "type": "string", "required": true, "description": "Pool ID or name the volumes are created in, e.g. 0." },
-        "ldev_ids": { "type": "array", "required": true, "range": true, "description": "LDEV IDs to create, e.g. [\"100-103\"] or [100, 101]." },
-        "capacity": { "type": "string", "required": true, "description": "Size of each volume, e.g. 100G." },
-        "ports": { "type": "array", "required": true, "description": "Ports the host is zoned to, e.g. [\"CL1-A\", \"CL2-A\"]." },
-        "host_grp": { "type": "string", "required": true, "description": "Host group name, e.g. esx01." },
-        "host_mode": { "type": "string", "required": true, "description": "Host mode, e.g. LINUX/IRIX, VMWARE_EX or WIN_EX." },
-        "host_mode_opt": { "type": "array", "description": "Host mode options, e.g. [63] for VMware. Optional." },
-        "wwns": { "type": "array", "required": true, "description": "Host WWPNs, e.g. [\"210000e08b0256f8\"]." }
+        "pool": {
+          "type": "string",
+          "required": true,
+          "description": "Pool ID or name the volumes are created in, e.g. 0."
+        },
+        "ldev_ids": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "LDEV IDs to create, e.g. [\"100-103\"] or [100, 101]."
+        },
+        "capacity": {
+          "type": "string",
+          "required": true,
+          "description": "Size of each volume, e.g. 100G."
+        },
+        "ports": {
+          "type": "array",
+          "required": true,
+          "description": "Ports the host is zoned to, e.g. [\"CL1-A\", \"CL2-A\"]."
+        },
+        "host_grp": {
+          "type": "string",
+          "required": true,
+          "description": "Host group name, e.g. esx01."
+        },
+        "host_mode": {
+          "type": "string",
+          "required": true,
+          "description": "Host mode, e.g. LINUX/IRIX, VMWARE_EX or WIN_EX."
+        },
+        "host_mode_opt": {
+          "type": "array",
+          "description": "Host mode options, e.g. [63] for VMware. Optional."
+        },
+        "wwns": {
+          "type": "array",
+          "required": true,
+          "description": "Host WWPNs, e.g. [\"210000e08b0256f8\"]."
+        }
       },
       "steps": [
-        { "title": "Create the volumes", "command": "add ldev", "options": { "-pool": "{pool}", "-ldev_id": "{ldev}", "-capacity": "{capacity}" }, "foreach": { "ldev": "ldev_ids" } },
-        { "title": "Create the host group on each port", "command": "add host_grp", "options": { "-port": "{port}", "-host_grp_name": "{host_grp}" }, "foreach": { "port": "ports" } },
-        { "title": "Set the host mode", "command": "modify host_grp", "options": { "-port": ["{port}", "{host_grp}"], "-host_mode": "{host_mode}", "-set_host_mode_opt": "{host_mode_opt}" }, "foreach": { "port": "ports" } },
-        { "title": "Register the host's WWNs", "command": "add hba_wwn", "options": { "-port": ["{port}", "{host_grp}"], "-hba_wwn": "{wwn}" }, "foreach": { "port": "ports", "wwn": "wwns" } },
-        { "title": "Map the volumes to the host group", "command": "add lun", "options": { "-port": ["{port}", "{host_grp}"], "-ldev_id": "{ldev}" }, "foreach": { "port": "ports", "ldev": "ldev_ids" } },
-        { "title": "Verify the paths", "command": "get lun", "options": { "-port": ["{port}", "{host_grp}"] }, "foreach": { "port": "ports" } }
+        {
+          "title": "Create the volumes",
+          "command": "add ldev",
+          "options": {
+            "-pool": "{pool}",
+            "-ldev_id": "{ldev}",
+            "-capacity": "{capacity}"
+          },
+          "foreach": {
+            "ldev": "ldev_ids"
+          }
+        },
+        {
+          "title": "Create the host group on each port",
+          "command": "add host_grp",
+          "options": {
+            "-port": "{port}",
+            "-host_grp_name": "{host_grp}"
+          },
+          "foreach": {
+            "port": "ports"
+          }
+        },
+        {
+          "title": "Set the host mode",
+          "command": "modify host_grp",
+          "options": {
+            "-port": [
+              "{port}",
+              "{host_grp}"
+            ],
+            "-host_mode": "{host_mode}",
+            "-set_host_mode_opt": "{host_mode_opt}"
+          },
+          "foreach": {
+            "port": "ports"
+          }
+        },
+        {
+          "title": "Register the host's WWNs",
+          "command": "add hba_wwn",
+          "options": {
+            "-port": [
+              "{port}",
+              "{host_grp}"
+            ],
+            "-hba_wwn": "{wwn}"
+          },
+          "foreach": {
+            "port": "ports",
+            "wwn": "wwns"
+          }
+        },
+        {
+          "title": "Map the volumes to the host group",
+          "command": "add lun",
+          "options": {
+            "-port": [
+              "{port}",
+              "{host_grp}"
+            ],
+            "-ldev_id": "{ldev}"
+          },
+          "foreach": {
+            "port": "ports",
+            "ldev": "ldev_ids"
+          }
+        },
+        {
+          "title": "Verify the paths",
+          "command": "get lun",
+          "options": {
+            "-port": [
+              "{port}",
+              "{host_grp}"
+            ]
+          },
+          "foreach": {
+            "port": "ports"
+          }
+        }
       ],
       "notes": [
         "add host_grp assigns the next free host group ID. When the same group must have the same ID on every port, add it with the ID in the port (CL1-A-1) instead.",
@@ -31,203 +148,956 @@
     "provision-iscsi-volumes": {
       "title": "Provision volumes to an iSCSI host",
       "summary": "Create DP volumes, create an iSCSI target on a port, register the initiator's IQN and map the volumes.",
-      "keywords": ["iscsi", "iqn", "initiator", "target", "provision", "new server"],
+      "keywords": [
+        "iscsi",
+        "iqn",
+        "initiator",
+        "target",
+        "provision",
+        "new server"
+      ],
       "params": {
-        "pool": { "type": "string", "required": true, "description": "Pool ID or name." },
-        "ldev_ids": { "type": "array", "required": true, "range": true, "description": "LDEV IDs to create." },
-        "capacity": { "type": "string", "required": true, "description": "Size of each volume, e.g. 100G." },
-        "ports": { "type": "array", "required": true, "description": "iSCSI ports, e.g. [\"CL3-A\"]." },
-        "target": { "type": "string", "required": true, "description": "iSCSI target (host group) name." },
-        "host_mode": { "type": "string", "required": true, "description": "Host mode, e.g. LINUX/IRIX." },
-        "iqns": { "type": "array", "required": true, "description": "Initiator IQNs, e.g. [\"iqn.1994-05.com.redhat:host01\"]." }
+        "pool": {
+          "type": "string",
+          "required": true,
+          "description": "Pool ID or name."
+        },
+        "ldev_ids": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "LDEV IDs to create."
+        },
+        "capacity": {
+          "type": "string",
+          "required": true,
+          "description": "Size of each volume, e.g. 100G."
+        },
+        "ports": {
+          "type": "array",
+          "required": true,
+          "description": "iSCSI ports, e.g. [\"CL3-A\"]."
+        },
+        "target": {
+          "type": "string",
+          "required": true,
+          "description": "iSCSI target (host group) name."
+        },
+        "host_mode": {
+          "type": "string",
+          "required": true,
+          "description": "Host mode, e.g. LINUX/IRIX."
+        },
+        "iqns": {
+          "type": "array",
+          "required": true,
+          "description": "Initiator IQNs, e.g. [\"iqn.1994-05.com.redhat:host01\"]."
+        }
       },
       "steps": [
-        { "title": "Create the volumes", "command": "add ldev", "options": { "-pool": "{pool}", "-ldev_id": "{ldev}", "-capacity": "{capacity}" }, "foreach": { "ldev": "ldev_ids" } },
-        { "title": "Create the iSCSI target on each port", "command": "add host_grp", "options": { "-port": "{port}", "-host_grp_name": "{target}" }, "foreach": { "port": "ports" } },
-        { "title": "Set the host mode", "command": "modify host_grp", "options": { "-port": ["{port}", "{target}"], "-host_mode": "{host_mode}" }, "foreach": { "port": "ports" } },
-        { "title": "Register the initiator IQNs", "command": "add hba_iscsi", "options": { "-port": ["{port}", "{target}"], "-hba_iscsi_name": "{iqn}" }, "foreach": { "port": "ports", "iqn": "iqns" } },
-        { "title": "Map the volumes to the target", "command": "add lun", "options": { "-port": ["{port}", "{target}"], "-ldev_id": "{ldev}" }, "foreach": { "port": "ports", "ldev": "ldev_ids" } }
+        {
+          "title": "Create the volumes",
+          "command": "add ldev",
+          "options": {
+            "-pool": "{pool}",
+            "-ldev_id": "{ldev}",
+            "-capacity": "{capacity}"
+          },
+          "foreach": {
+            "ldev": "ldev_ids"
+          }
+        },
+        {
+          "title": "Create the iSCSI target on each port",
+          "command": "add host_grp",
+          "options": {
+            "-port": "{port}",
+            "-host_grp_name": "{target}"
+          },
+          "foreach": {
+            "port": "ports"
+          }
+        },
+        {
+          "title": "Set the host mode",
+          "command": "modify host_grp",
+          "options": {
+            "-port": [
+              "{port}",
+              "{target}"
+            ],
+            "-host_mode": "{host_mode}"
+          },
+          "foreach": {
+            "port": "ports"
+          }
+        },
+        {
+          "title": "Register the initiator IQNs",
+          "command": "add hba_iscsi",
+          "options": {
+            "-port": [
+              "{port}",
+              "{target}"
+            ],
+            "-hba_iscsi_name": "{iqn}"
+          },
+          "foreach": {
+            "port": "ports",
+            "iqn": "iqns"
+          }
+        },
+        {
+          "title": "Map the volumes to the target",
+          "command": "add lun",
+          "options": {
+            "-port": [
+              "{port}",
+              "{target}"
+            ],
+            "-ldev_id": "{ldev}"
+          },
+          "foreach": {
+            "port": "ports",
+            "ldev": "ldev_ids"
+          }
+        }
       ],
-      "notes": ["Port IP addressing, VLANs and virtual ports are set with raidcom modify port; see raidcom_describe_command for `modify port`."]
+      "notes": [
+        "Port IP addressing, VLANs and virtual ports are set with raidcom modify port; see raidcom_describe_command for `modify port`."
+      ]
     },
     "provision-nvme-tcp-namespaces": {
       "title": "Provision namespaces to an NVMe/TCP host",
       "summary": "Create volumes, an NVM subsystem with its ports, register the host NQN, add namespaces and give the host access to them.",
-      "keywords": ["nvme", "nvme/tcp", "nqn", "namespace", "subsystem", "nvm_subsystem"],
+      "keywords": [
+        "nvme",
+        "nvme/tcp",
+        "nqn",
+        "namespace",
+        "subsystem",
+        "nvm_subsystem"
+      ],
       "params": {
-        "pool": { "type": "string", "required": true, "description": "Pool ID or name." },
-        "ldev_ids": { "type": "array", "required": true, "range": true, "description": "LDEV IDs to create." },
-        "capacity": { "type": "string", "required": true, "description": "Size of each volume, e.g. 100G." },
-        "ns_ids": { "type": "array", "required": true, "range": true, "description": "Namespace IDs, one per LDEV in the same order, e.g. [\"1-4\"]." },
-        "nvm_subsystem_id": { "type": "string", "required": true, "description": "NVM subsystem ID, e.g. 1." },
-        "nvm_subsystem_name": { "type": "string", "description": "NVM subsystem name. Optional." },
-        "ports": { "type": "array", "required": true, "description": "NVMe/TCP ports, e.g. [\"CL1-A\"]." },
-        "host_nqn": { "type": "string", "required": true, "description": "Host NQN, e.g. nqn.2014-08.org.nvmexpress:uuid:..." }
+        "pool": {
+          "type": "string",
+          "required": true,
+          "description": "Pool ID or name."
+        },
+        "ldev_ids": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "LDEV IDs to create."
+        },
+        "capacity": {
+          "type": "string",
+          "required": true,
+          "description": "Size of each volume, e.g. 100G."
+        },
+        "ns_ids": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "Namespace IDs, one per LDEV in the same order, e.g. [\"1-4\"]."
+        },
+        "nvm_subsystem_id": {
+          "type": "string",
+          "required": true,
+          "description": "NVM subsystem ID, e.g. 1."
+        },
+        "nvm_subsystem_name": {
+          "type": "string",
+          "description": "NVM subsystem name. Optional."
+        },
+        "ports": {
+          "type": "array",
+          "required": true,
+          "description": "NVMe/TCP ports, e.g. [\"CL1-A\"]."
+        },
+        "host_nqn": {
+          "type": "string",
+          "required": true,
+          "description": "Host NQN, e.g. nqn.2014-08.org.nvmexpress:uuid:..."
+        }
       },
       "steps": [
-        { "title": "Create the volumes", "command": "add ldev", "options": { "-pool": "{pool}", "-ldev_id": "{ldev}", "-capacity": "{capacity}" }, "foreach": { "ldev": "ldev_ids" } },
-        { "title": "Create the NVM subsystem", "command": "add nvm_subsystem", "options": { "-nvm_subsystem_id": "{nvm_subsystem_id}", "-nvm_subsystem_name": "{nvm_subsystem_name}", "-request_id": "auto" } },
-        { "title": "Add the subsystem ports", "command": "add nvm_subsystem_port", "options": { "-nvm_subsystem_id": "{nvm_subsystem_id}", "-port": "{port}", "-request_id": "auto" }, "foreach": { "port": "ports" } },
-        { "title": "Register the host NQN", "command": "add host_nqn", "options": { "-nvm_subsystem_id": "{nvm_subsystem_id}", "-host_nqn": "{host_nqn}", "-request_id": "auto" } },
-        { "title": "Add the namespaces", "command": "add namespace", "options": { "-nvm_subsystem_id": "{nvm_subsystem_id}", "-ns_id": "{ns}", "-ldev_id": "{ldev}", "-request_id": "auto" }, "zip": { "ns": "ns_ids", "ldev": "ldev_ids" } },
-        { "title": "Give the host access to each namespace", "command": "add namespace_path", "options": { "-nvm_subsystem_id": "{nvm_subsystem_id}", "-ns_id": "{ns}", "-host_nqn": "{host_nqn}", "-request_id": "auto" }, "foreach": { "ns": "ns_ids" } }
+        {
+          "title": "Create the volumes",
+          "command": "add ldev",
+          "options": {
+            "-pool": "{pool}",
+            "-ldev_id": "{ldev}",
+            "-capacity": "{capacity}"
+          },
+          "foreach": {
+            "ldev": "ldev_ids"
+          }
+        },
+        {
+          "title": "Create the NVM subsystem",
+          "command": "add nvm_subsystem",
+          "options": {
+            "-nvm_subsystem_id": "{nvm_subsystem_id}",
+            "-nvm_subsystem_name": "{nvm_subsystem_name}",
+            "-request_id": "auto"
+          }
+        },
+        {
+          "title": "Add the subsystem ports",
+          "command": "add nvm_subsystem_port",
+          "options": {
+            "-nvm_subsystem_id": "{nvm_subsystem_id}",
+            "-port": "{port}",
+            "-request_id": "auto"
+          },
+          "foreach": {
+            "port": "ports"
+          }
+        },
+        {
+          "title": "Register the host NQN",
+          "command": "add host_nqn",
+          "options": {
+            "-nvm_subsystem_id": "{nvm_subsystem_id}",
+            "-host_nqn": "{host_nqn}",
+            "-request_id": "auto"
+          }
+        },
+        {
+          "title": "Add the namespaces",
+          "command": "add namespace",
+          "options": {
+            "-nvm_subsystem_id": "{nvm_subsystem_id}",
+            "-ns_id": "{ns}",
+            "-ldev_id": "{ldev}",
+            "-request_id": "auto"
+          },
+          "zip": {
+            "ns": "ns_ids",
+            "ldev": "ldev_ids"
+          }
+        },
+        {
+          "title": "Give the host access to each namespace",
+          "command": "add namespace_path",
+          "options": {
+            "-nvm_subsystem_id": "{nvm_subsystem_id}",
+            "-ns_id": "{ns}",
+            "-host_nqn": "{host_nqn}",
+            "-request_id": "auto"
+          },
+          "foreach": {
+            "ns": "ns_ids"
+          }
+        }
       ],
-      "notes": ["The ports must already be in NVMe mode (raidcom modify port -port_mode nvme) and addressed (raidcom modify port ... -ipv4_address ...)."]
+      "notes": [
+        "The ports must already be in NVMe mode (raidcom modify port -port_mode nvme) and addressed (raidcom modify port ... -ipv4_address ...)."
+      ]
     },
     "create-dp-pool": {
       "title": "Create a Dynamic Provisioning pool",
       "summary": "Create a pool from existing LDEVs (or a parity group), then check it.",
-      "keywords": ["pool", "dp pool", "hdp", "create pool", "new pool", "dynamic provisioning"],
+      "keywords": [
+        "pool",
+        "dp pool",
+        "hdp",
+        "create pool",
+        "new pool",
+        "dynamic provisioning"
+      ],
       "params": {
-        "pool_id": { "type": "string", "required": true, "description": "Free pool ID. Find one with raidcom get pool." },
-        "pool_name": { "type": "string", "required": true, "description": "Pool name." },
-        "pool_ldevs": { "type": "array", "required": true, "range": true, "description": "LDEV IDs that become pool volumes." },
-        "warning_threshold": { "type": "string", "description": "Warning threshold percent, e.g. 70. Optional; give both thresholds or neither." },
-        "depletion_threshold": { "type": "string", "description": "Depletion threshold percent, e.g. 80." }
+        "pool_id": {
+          "type": "string",
+          "required": true,
+          "description": "Free pool ID. Find one with raidcom get pool."
+        },
+        "pool_name": {
+          "type": "string",
+          "required": true,
+          "description": "Pool name."
+        },
+        "pool_ldevs": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "LDEV IDs that become pool volumes."
+        },
+        "warning_threshold": {
+          "type": "string",
+          "description": "Warning threshold percent, e.g. 70. Optional; give both thresholds or neither."
+        },
+        "depletion_threshold": {
+          "type": "string",
+          "description": "Depletion threshold percent, e.g. 80."
+        }
       },
       "steps": [
-        { "title": "Look for a free pool ID", "command": "get pool" },
-        { "title": "Create the pool", "command": "add dp_pool", "options": { "-pool_id": "{pool_id}", "-pool_name": "{pool_name}", "-ldev_id": "{pool_ldevs}" } },
-        { "title": "Set the thresholds", "command": "modify pool", "options": { "-pool": "{pool_id}", "-user_threshold": ["{warning_threshold}", "{depletion_threshold}"] }, "when": "warning_threshold" },
-        { "title": "Check the pool", "command": "get pool", "options": { "-pool": "{pool_id}", "-key": "opt" } }
+        {
+          "title": "Look for a free pool ID",
+          "command": "get pool"
+        },
+        {
+          "title": "Create the pool",
+          "command": "add dp_pool",
+          "options": {
+            "-pool_id": "{pool_id}",
+            "-pool_name": "{pool_name}",
+            "-ldev_id": "{pool_ldevs}"
+          }
+        },
+        {
+          "title": "Set the thresholds",
+          "command": "modify pool",
+          "options": {
+            "-pool": "{pool_id}",
+            "-user_threshold": [
+              "{warning_threshold}",
+              "{depletion_threshold}"
+            ]
+          },
+          "when": "warning_threshold"
+        },
+        {
+          "title": "Check the pool",
+          "command": "get pool",
+          "options": {
+            "-pool": "{pool_id}",
+            "-key": "opt"
+          }
+        }
       ],
-      "notes": ["The LDEVs must exist and be formatted and unmapped before they can become pool volumes."]
+      "notes": [
+        "The LDEVs must exist and be formatted and unmapped before they can become pool volumes."
+      ]
     },
     "grow-dp-pool": {
       "title": "Add pool volumes to a pool",
       "summary": "Expand an existing Dynamic Provisioning pool with more pool volumes. raidcom cannot shrink a pool.",
-      "keywords": ["grow pool", "expand pool", "add pool volume", "more capacity"],
+      "keywords": [
+        "grow pool",
+        "expand pool",
+        "add pool volume",
+        "more capacity"
+      ],
       "params": {
-        "pool_id": { "type": "string", "required": true, "description": "Pool ID to expand." },
-        "pool_ldevs": { "type": "array", "required": true, "range": true, "description": "LDEV IDs to add as pool volumes." }
+        "pool_id": {
+          "type": "string",
+          "required": true,
+          "description": "Pool ID to expand."
+        },
+        "pool_ldevs": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "LDEV IDs to add as pool volumes."
+        }
       },
       "steps": [
-        { "title": "Add the pool volumes", "command": "add dp_pool", "options": { "-pool_id": "{pool_id}", "-ldev_id": "{pool_ldevs}" } },
-        { "title": "Check the pool", "command": "get pool", "options": { "-pool": "{pool_id}", "-key": "opt" } }
+        {
+          "title": "Add the pool volumes",
+          "command": "add dp_pool",
+          "options": {
+            "-pool_id": "{pool_id}",
+            "-ldev_id": "{pool_ldevs}"
+          }
+        },
+        {
+          "title": "Check the pool",
+          "command": "get pool",
+          "options": {
+            "-pool": "{pool_id}",
+            "-key": "opt"
+          }
+        }
       ],
-      "notes": ["Removing pool volumes is a GUI operation; there is no raidcom command for it."]
+      "notes": [
+        "Removing pool volumes is a GUI operation; there is no raidcom command for it."
+      ]
     },
     "extend-dp-volume": {
       "title": "Extend DP volumes",
       "summary": "Grow DP volumes online. The capacity is the amount to ADD, not the new size, and the change cannot be undone.",
-      "keywords": ["extend", "expand volume", "grow volume", "resize", "increase size"],
+      "keywords": [
+        "extend",
+        "expand volume",
+        "grow volume",
+        "resize",
+        "increase size"
+      ],
       "params": {
-        "ldev_ids": { "type": "array", "required": true, "range": true, "description": "LDEV IDs to extend." },
-        "add_capacity": { "type": "string", "required": true, "description": "Capacity to add to each volume, e.g. 100G." }
+        "ldev_ids": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "LDEV IDs to extend."
+        },
+        "add_capacity": {
+          "type": "string",
+          "required": true,
+          "description": "Capacity to add to each volume, e.g. 100G."
+        }
       },
       "steps": [
-        { "title": "Extend each volume by the given capacity", "command": "extend ldev", "options": { "-ldev_id": "{ldev}", "-capacity": "{add_capacity}" }, "foreach": { "ldev": "ldev_ids" } },
-        { "title": "Show the new size", "command": "get ldev", "options": { "-ldev_id": "{ldev}" }, "foreach": { "ldev": "ldev_ids" } }
+        {
+          "title": "Extend each volume by the given capacity",
+          "command": "extend ldev",
+          "options": {
+            "-ldev_id": "{ldev}",
+            "-capacity": "{add_capacity}"
+          },
+          "foreach": {
+            "ldev": "ldev_ids"
+          }
+        },
+        {
+          "title": "Show the new size",
+          "command": "get ldev",
+          "options": {
+            "-ldev_id": "{ldev}"
+          },
+          "foreach": {
+            "ldev": "ldev_ids"
+          }
+        }
       ],
-      "notes": ["Only DP volumes can be extended this way. A volume cannot be shrunk."]
+      "notes": [
+        "Only DP volumes can be extended this way. A volume cannot be shrunk."
+      ]
     },
     "unmap-and-delete-volumes": {
       "title": "Unmap and delete volumes",
       "summary": "Remove the LU paths of volumes, then delete the volumes. Destructive.",
-      "keywords": ["delete volume", "remove volume", "unmap", "decommission", "delete lun"],
+      "keywords": [
+        "delete volume",
+        "remove volume",
+        "unmap",
+        "decommission",
+        "delete lun"
+      ],
       "params": {
-        "ports": { "type": "array", "required": true, "description": "Ports the volumes are mapped on." },
-        "host_grp": { "type": "string", "required": true, "description": "Host group name." },
-        "ldev_ids": { "type": "array", "required": true, "range": true, "description": "LDEV IDs to remove." }
+        "ports": {
+          "type": "array",
+          "required": true,
+          "description": "Ports the volumes are mapped on."
+        },
+        "host_grp": {
+          "type": "string",
+          "required": true,
+          "description": "Host group name."
+        },
+        "ldev_ids": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "LDEV IDs to remove."
+        }
       },
       "steps": [
-        { "title": "Remove the LU paths", "command": "delete lun", "options": { "-port": ["{port}", "{host_grp}"], "-ldev_id": "{ldev}" }, "foreach": { "port": "ports", "ldev": "ldev_ids" } },
-        { "title": "Delete the volumes", "command": "delete ldev", "options": { "-ldev_id": "{ldev}" }, "foreach": { "ldev": "ldev_ids" } }
+        {
+          "title": "Remove the LU paths",
+          "command": "delete lun",
+          "options": {
+            "-port": [
+              "{port}",
+              "{host_grp}"
+            ],
+            "-ldev_id": "{ldev}"
+          },
+          "foreach": {
+            "port": "ports",
+            "ldev": "ldev_ids"
+          }
+        },
+        {
+          "title": "Delete the volumes",
+          "command": "delete ldev",
+          "options": {
+            "-ldev_id": "{ldev}"
+          },
+          "foreach": {
+            "ldev": "ldev_ids"
+          }
+        }
       ],
-      "notes": ["Make sure the host no longer uses the volumes. Deleting a volume destroys its data."]
+      "notes": [
+        "Make sure the host no longer uses the volumes. Deleting a volume destroys its data."
+      ]
     },
     "rename-host-group": {
       "title": "Rename a host group",
       "summary": "raidcom has no rename for host groups: adding a group with the same ID and a new name renames it. Find the ID first.",
-      "keywords": ["rename host group", "change host group name"],
+      "keywords": [
+        "rename host group",
+        "change host group name"
+      ],
       "params": {
-        "port": { "type": "string", "required": true, "description": "Port, e.g. CL3-A." },
-        "host_grp_id": { "type": "string", "required": true, "description": "Host group ID found with get host_grp, e.g. 1." },
-        "new_name": { "type": "string", "required": true, "description": "New host group name." }
+        "port": {
+          "type": "string",
+          "required": true,
+          "description": "Port, e.g. CL3-A."
+        },
+        "host_grp_id": {
+          "type": "string",
+          "required": true,
+          "description": "Host group ID found with get host_grp, e.g. 1."
+        },
+        "new_name": {
+          "type": "string",
+          "required": true,
+          "description": "New host group name."
+        }
       },
       "steps": [
-        { "title": "List the host groups to find the ID", "command": "get host_grp", "options": { "-port": "{port}" } },
-        { "title": "Rename the host group", "command": "add host_grp", "options": { "-port": "{port}-{host_grp_id}", "-host_grp_name": "{new_name}" } }
+        {
+          "title": "List the host groups to find the ID",
+          "command": "get host_grp",
+          "options": {
+            "-port": "{port}"
+          }
+        },
+        {
+          "title": "Rename the host group",
+          "command": "add host_grp",
+          "options": {
+            "-port": "{port}-{host_grp_id}",
+            "-host_grp_name": "{new_name}"
+          }
+        }
       ],
-      "notes": ["This is the behaviour described for the arrays the command was written for; run it with checkmode first on yours."]
+      "notes": [
+        "This is the behaviour described for the arrays the command was written for; run it with checkmode first on yours."
+      ]
     },
     "create-command-device": {
       "title": "Create a command device",
       "summary": "Create a small volume, turn it into a command device and map it to the CCI host.",
-      "keywords": ["command device", "cmd dev", "horcm_cmd", "cci host"],
+      "keywords": [
+        "command device",
+        "cmd dev",
+        "horcm_cmd",
+        "cci host"
+      ],
       "params": {
-        "pool": { "type": "string", "required": true, "description": "Pool for the volume." },
-        "ldev_id": { "type": "string", "required": true, "description": "LDEV ID of the command device." },
-        "capacity": { "type": "string", "required": true, "description": "Size, e.g. 100M (at least 33 MB)." },
-        "security": { "type": "string", "description": "Security setting digit placed after y, e.g. 3. Optional." },
-        "port": { "type": "string", "required": true, "description": "Port, e.g. CL3-A." },
-        "host_grp": { "type": "string", "required": true, "description": "Host group of the CCI host." },
-        "lun_id": { "type": "string", "description": "LUN number. Optional." }
+        "pool": {
+          "type": "string",
+          "required": true,
+          "description": "Pool for the volume."
+        },
+        "ldev_id": {
+          "type": "string",
+          "required": true,
+          "description": "LDEV ID of the command device."
+        },
+        "capacity": {
+          "type": "string",
+          "required": true,
+          "description": "Size, e.g. 100M (at least 33 MB)."
+        },
+        "security": {
+          "type": "string",
+          "description": "Security setting digit placed after y, e.g. 3. Optional."
+        },
+        "port": {
+          "type": "string",
+          "required": true,
+          "description": "Port, e.g. CL3-A."
+        },
+        "host_grp": {
+          "type": "string",
+          "required": true,
+          "description": "Host group of the CCI host."
+        },
+        "lun_id": {
+          "type": "string",
+          "description": "LUN number. Optional."
+        }
       },
       "steps": [
-        { "title": "Create the volume", "command": "add ldev", "options": { "-pool": "{pool}", "-ldev_id": "{ldev_id}", "-capacity": "{capacity}" } },
-        { "title": "Make it a command device", "command": "modify ldev", "options": { "-ldev_id": "{ldev_id}", "-command_device": ["y", "{security}"] } },
-        { "title": "Map it to the CCI host", "command": "add lun", "options": { "-port": ["{port}", "{host_grp}"], "-ldev_id": "{ldev_id}", "-lun_id": "{lun_id}" } }
+        {
+          "title": "Create the volume",
+          "command": "add ldev",
+          "options": {
+            "-pool": "{pool}",
+            "-ldev_id": "{ldev_id}",
+            "-capacity": "{capacity}"
+          }
+        },
+        {
+          "title": "Make it a command device",
+          "command": "modify ldev",
+          "options": {
+            "-ldev_id": "{ldev_id}",
+            "-command_device": [
+              "y",
+              "{security}"
+            ]
+          }
+        },
+        {
+          "title": "Map it to the CCI host",
+          "command": "add lun",
+          "options": {
+            "-port": [
+              "{port}",
+              "{host_grp}"
+            ],
+            "-ldev_id": "{ldev_id}",
+            "-lun_id": "{lun_id}"
+          }
+        }
       ],
-      "notes": ["Never put a file system on a command device. Leave at least one command device per host OS type."]
+      "notes": [
+        "Never put a file system on a command device. Leave at least one command device per host OS type."
+      ]
     },
     "reclaim-zero-pages": {
       "title": "Reclaim zero pages",
       "summary": "Start zero page reclamation on DP volumes and check that it finished.",
-      "keywords": ["zero page", "reclaim", "discard", "free space", "thin"],
+      "keywords": [
+        "zero page",
+        "reclaim",
+        "discard",
+        "free space",
+        "thin"
+      ],
       "params": {
-        "ldev_ids": { "type": "array", "required": true, "range": true, "description": "DP volume LDEV IDs." }
+        "ldev_ids": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "DP volume LDEV IDs."
+        }
       },
       "steps": [
-        { "title": "Start reclamation", "command": "modify ldev", "options": { "-ldev_id": "{ldev}", "-status": "discard_zero_page" }, "foreach": { "ldev": "ldev_ids" } }
+        {
+          "title": "Start reclamation",
+          "command": "modify ldev",
+          "options": {
+            "-ldev_id": "{ldev}",
+            "-status": "discard_zero_page"
+          },
+          "foreach": {
+            "ldev": "ldev_ids"
+          }
+        }
       ],
-      "notes": ["The command is asynchronous; raidcom get command_status shows when it is done."]
+      "notes": [
+        "The command is asynchronous; raidcom get command_status shows when it is done."
+      ]
     },
     "inventory-report": {
       "title": "Read-only inventory of a storage system",
       "summary": "Commands that report ports, parity groups, pools, host groups and LDEVs. Nothing is changed.",
-      "keywords": ["inventory", "report", "list", "audit", "what is configured", "overview"],
+      "keywords": [
+        "inventory",
+        "report",
+        "list",
+        "audit",
+        "what is configured",
+        "overview"
+      ],
       "params": {},
       "steps": [
-        { "title": "Ports", "command": "get port" },
-        { "title": "Parity groups", "command": "get parity_grp" },
-        { "title": "Pools", "command": "get pool", "options": { "-key": "opt" } },
-        { "title": "Host groups on every port", "command": "get host_grp", "options": { "-allports": true } },
-        { "title": "Implemented LDEVs", "command": "get ldev", "options": { "-ldev_list": "defined" } },
-        { "title": "LDEVs that have LU paths", "command": "get ldev", "options": { "-ldev_list": "mapped" } }
+        {
+          "title": "Ports",
+          "command": "get port"
+        },
+        {
+          "title": "Parity groups",
+          "command": "get parity_grp"
+        },
+        {
+          "title": "Pools",
+          "command": "get pool",
+          "options": {
+            "-key": "opt"
+          }
+        },
+        {
+          "title": "Host groups on every port",
+          "command": "get host_grp",
+          "options": {
+            "-allports": true
+          }
+        },
+        {
+          "title": "Implemented LDEVs",
+          "command": "get ldev",
+          "options": {
+            "-ldev_list": "defined"
+          }
+        },
+        {
+          "title": "LDEVs that have LU paths",
+          "command": "get ldev",
+          "options": {
+            "-ldev_list": "mapped"
+          }
+        }
       ],
       "notes": []
     },
     "create-copy-group": {
       "title": "Create device groups and a copy group",
       "summary": "Put primary and secondary LDEVs into device groups and tie them together in a copy group, ready for paircreate.",
-      "keywords": ["copy group", "device group", "replication", "pair", "gad", "ur", "truecopy", "shadowimage"],
+      "keywords": [
+        "copy group",
+        "device group",
+        "replication",
+        "pair",
+        "gad",
+        "ur",
+        "truecopy",
+        "shadowimage"
+      ],
       "params": {
-        "primary_group": { "type": "string", "required": true, "description": "Device group name for the primary volumes." },
-        "primary_ldevs": { "type": "array", "required": true, "range": true, "description": "Primary LDEV IDs." },
-        "secondary_group": { "type": "string", "required": true, "description": "Device group name for the secondary volumes." },
-        "secondary_ldevs": { "type": "array", "required": true, "range": true, "description": "Secondary LDEV IDs, same count and order as the primary." },
-        "copy_group": { "type": "string", "required": true, "description": "Copy group name." },
-        "device_prefix": { "type": "string", "required": true, "description": "Prefix for device names; the LDEV ID is appended." }
+        "primary_group": {
+          "type": "string",
+          "required": true,
+          "description": "Device group name for the primary volumes."
+        },
+        "primary_ldevs": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "Primary LDEV IDs."
+        },
+        "secondary_group": {
+          "type": "string",
+          "required": true,
+          "description": "Device group name for the secondary volumes."
+        },
+        "secondary_ldevs": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "Secondary LDEV IDs, same count and order as the primary."
+        },
+        "copy_group": {
+          "type": "string",
+          "required": true,
+          "description": "Copy group name."
+        },
+        "device_prefix": {
+          "type": "string",
+          "required": true,
+          "description": "Prefix for device names; the LDEV ID is appended."
+        }
       },
       "steps": [
-        { "title": "Primary device group", "command": "add device_grp", "options": { "-device_grp_name": ["{primary_group}", "{device_prefix}{p}"], "-ldev_id": "{p}" }, "foreach": { "p": "primary_ldevs" } },
-        { "title": "Secondary device group", "command": "add device_grp", "options": { "-device_grp_name": ["{secondary_group}", "{device_prefix}{p}"], "-ldev_id": "{s}" }, "zip": { "p": "primary_ldevs", "s": "secondary_ldevs" } },
-        { "title": "Copy group", "command": "add copy_grp", "options": { "-copy_grp_name": ["{copy_group}", "{primary_group}", "{secondary_group}"] } }
+        {
+          "title": "Primary device group",
+          "command": "add device_grp",
+          "options": {
+            "-device_grp_name": [
+              "{primary_group}",
+              "{device_prefix}{p}"
+            ],
+            "-ldev_id": "{p}"
+          },
+          "foreach": {
+            "p": "primary_ldevs"
+          }
+        },
+        {
+          "title": "Secondary device group",
+          "command": "add device_grp",
+          "options": {
+            "-device_grp_name": [
+              "{secondary_group}",
+              "{device_prefix}{p}"
+            ],
+            "-ldev_id": "{s}"
+          },
+          "zip": {
+            "p": "primary_ldevs",
+            "s": "secondary_ldevs"
+          }
+        },
+        {
+          "title": "Copy group",
+          "command": "add copy_grp",
+          "options": {
+            "-copy_grp_name": [
+              "{copy_group}",
+              "{primary_group}",
+              "{secondary_group}"
+            ]
+          }
+        }
       ],
-      "notes": ["Run the device group and copy group commands on the instance that owns each side, then create the pairs with paircreate (not part of this server)."]
+      "notes": [
+        "Run the device group and copy group commands on the instance that owns each side, then create the pairs with paircreate (not part of this server)."
+      ]
     },
     "check-async-result": {
       "title": "Check an asynchronous command",
       "summary": "Show the result of asynchronous commands and look up an error code.",
-      "keywords": ["command status", "async", "request id", "did it finish", "error", "ssb"],
+      "keywords": [
+        "command status",
+        "async",
+        "request id",
+        "did it finish",
+        "error",
+        "ssb"
+      ],
       "params": {
-        "request_id": { "type": "string", "description": "Request ID printed by a command run with -request_id auto. Optional." }
+        "request_id": {
+          "type": "string",
+          "description": "Request ID printed by a command run with -request_id auto. Optional."
+        }
       },
       "steps": [
-        { "title": "Show command status", "command": "get command_status", "options": { "-request_id": "{request_id}" } }
+        {
+          "title": "Show command status",
+          "command": "get command_status",
+          "options": {
+            "-request_id": "{request_id}"
+          }
+        }
       ],
-      "notes": ["Give the SSB1 and SSB2 codes it shows to raidcom get error_message to read the reason."]
+      "notes": [
+        "Give the SSB1 and SSB2 codes it shows to raidcom get error_message to read the reason."
+      ]
+    },
+    "create-mainframe-pool": {
+      "title": "Create a mainframe (3390) Dynamic Provisioning pool",
+      "summary": "Create a parity group with the 3390-V mainframe emulation type, create and quick-format 3390-V LDEVs on it, optionally assign them an SSID, and make them the volumes of a DP pool.",
+      "keywords": [
+        "mainframe",
+        "3390",
+        "3390-v",
+        "ckd",
+        "ssid",
+        "qfmt",
+        "quick format",
+        "pool",
+        "dp pool",
+        "parity group",
+        "zos",
+        "drive operation"
+      ],
+      "env": {
+        "HORCC_DRIVEOPERATION": "1"
+      },
+      "params": {
+        "parity_grp_id": {
+          "type": "string",
+          "required": true,
+          "description": "Parity group ID to create, in the form gno-sgno, e.g. 1-2."
+        },
+        "drive_locations": {
+          "type": "array",
+          "required": true,
+          "description": "Drive locations of the parity group, e.g. [\"0-1\",\"1-1\",\"2-1\",\"3-1\",\"4-1\",\"5-1\",\"6-1\",\"7-1\"]. Find free drives with raidcom get drive."
+        },
+        "raid_type": {
+          "type": "string",
+          "required": true,
+          "description": "RAID level and layout, e.g. 6D2P."
+        },
+        "ldev_ids": {
+          "type": "array",
+          "required": true,
+          "range": true,
+          "description": "LDEV IDs to create, as CU:LDEV in hex. Ranges work: [\"dd:00-dd:0f\"] is sixteen LDEVs."
+        },
+        "ldev_capacity": {
+          "type": "string",
+          "required": true,
+          "description": "Capacity of each LDEV; a number without a unit is blocks, e.g. 912350208."
+        },
+        "ssid": {
+          "type": "string",
+          "description": "Subsystem ID (SSID) to assign to the LDEVs: four hex digits, chosen by you and unused on this system. Optional; the step is left out if you don't give one."
+        },
+        "pool_id": {
+          "type": "string",
+          "required": true,
+          "description": "Free pool ID."
+        },
+        "pool_name": {
+          "type": "string",
+          "required": true,
+          "description": "Pool name."
+        }
+      },
+      "steps": [
+        {
+          "title": "List the drives",
+          "command": "get drive"
+        },
+        {
+          "title": "Create the parity group",
+          "command": "add parity_grp",
+          "options": {
+            "-parity_grp_id": "{parity_grp_id}",
+            "-drive_location": "{drive_locations}",
+            "-emulation": "3390-V",
+            "-raid_type": "{raid_type}"
+          }
+        },
+        {
+          "title": "Check the drives again",
+          "command": "get drive"
+        },
+        {
+          "title": "Check the parity group",
+          "command": "get parity_grp"
+        },
+        {
+          "title": "Assign the SSID",
+          "command": "modify ldev",
+          "options": {
+            "-ldev_id": "{ldev}",
+            "-ssid": "{ssid}"
+          },
+          "foreach": {
+            "ldev": "ldev_ids"
+          },
+          "when": "ssid"
+        },
+        {
+          "title": "Create the LDEVs",
+          "command": "add ldev",
+          "options": {
+            "-ldev_id": "{ldev}",
+            "-capacity": "{ldev_capacity}",
+            "-emulation": "3390-V",
+            "-parity_grp_id": "{parity_grp_id}"
+          },
+          "foreach": {
+            "ldev": "ldev_ids"
+          }
+        },
+        {
+          "title": "Quick-format the LDEVs",
+          "command": "initialize ldev",
+          "options": {
+            "-operation": "qfmt",
+            "-ldev_id": "{ldev}"
+          },
+          "foreach": {
+            "ldev": "ldev_ids"
+          }
+        },
+        {
+          "title": "Create the pool",
+          "command": "add dp_pool",
+          "options": {
+            "-pool_id": "{pool_id}",
+            "-pool_name": "{pool_name}",
+            "-ldev_id": "{ldev_ids}"
+          }
+        }
+      ],
+      "notes": [
+        "Run the script with a HORCM instance that manages the array. The script exports HORCC_DRIVEOPERATION=1, which the drive and parity group commands need.",
+        "Quick format runs in the background: wait until raidcom get ldev shows the LDEVs are no longer formatting before relying on the pool.",
+        "The commands follow a sequence used on a real mainframe-capable system; -emulation on add parity_grp is not in the manual's syntax line. Check the SSID against your configuration."
+      ]
     }
   }
 }

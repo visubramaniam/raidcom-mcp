@@ -964,7 +964,7 @@
     },
     "create-mainframe-pool": {
       "title": "Create a mainframe (3390) Dynamic Provisioning pool",
-      "summary": "Create a parity group with a mainframe emulation type, create and quick-format 3390 LDEVs on it, assign them an SSID, and make them the volumes of a DP pool.",
+      "summary": "Create a parity group with the 3390-V mainframe emulation type, create and quick-format 3390-V LDEVs on it, optionally assign them an SSID, and make them the volumes of a DP pool.",
       "keywords": [
         "mainframe",
         "3390",
@@ -998,11 +998,6 @@
           "required": true,
           "description": "RAID level and layout, e.g. 6D2P."
         },
-        "emulation": {
-          "type": "string",
-          "required": true,
-          "description": "Mainframe emulation type, e.g. 3390-V."
-        },
         "ldev_ids": {
           "type": "array",
           "required": true,
@@ -1016,7 +1011,7 @@
         },
         "ssid": {
           "type": "string",
-          "description": "Subsystem ID (SSID) to assign to the LDEVs, e.g. 0014. Optional."
+          "description": "Subsystem ID (SSID) to assign to the LDEVs: four hex digits, chosen by you and unused on this system. Optional; the step is left out if you don't give one."
         },
         "pool_id": {
           "type": "string",
@@ -1040,7 +1035,7 @@
           "options": {
             "-parity_grp_id": "{parity_grp_id}",
             "-drive_location": "{drive_locations}",
-            "-emulation": "{emulation}",
+            "-emulation": "3390-V",
             "-raid_type": "{raid_type}"
           }
         },
@@ -1070,7 +1065,7 @@
           "options": {
             "-ldev_id": "{ldev}",
             "-capacity": "{ldev_capacity}",
-            "-emulation": "{emulation}",
+            "-emulation": "3390-V",
             "-parity_grp_id": "{parity_grp_id}"
           },
           "foreach": {
@@ -1101,7 +1096,7 @@
       "notes": [
         "Run the script with a HORCM instance that manages the array. The script exports HORCC_DRIVEOPERATION=1, which the drive and parity group commands need.",
         "Quick format runs in the background: wait until raidcom get ldev shows the LDEVs are no longer formatting before relying on the pool.",
-        "The commands follow a sequence used on a real mainframe-capable system; -emulation on add parity_grp is not in the manual's syntax line. Check the SSID and emulation type against your configuration."
+        "The commands follow a sequence used on a real mainframe-capable system; -emulation on add parity_grp is not in the manual's syntax line. Check the SSID against your configuration."
       ]
     }
   }

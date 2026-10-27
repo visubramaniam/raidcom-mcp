@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Recipe `create-mainframe-pool`:** creates a mainframe parity group (`-emulation 3390-V`), assigns an SSID, creates and quick-formats 3390 LDEVs and makes them a DP pool, with `HORCC_DRIVEOPERATION=1` exported at the top of the script. Recipes can now export environment variables (`env`).
+- **Recipe `create-mainframe-pool`:** creates a mainframe parity group (always `-emulation 3390-V`, not a parameter), assigns an SSID, creates and quick-formats 3390 LDEVs and makes them a DP pool, with `HORCC_DRIVEOPERATION=1` exported at the top of the script. Recipes can now export environment variables (`env`).
 - **CU:LDEV notation** (`dd:0f`) is accepted for LDEV IDs and range-checked, and ranges such as `dd:00-dd:0f` expand in recipes and scripts.
 - `add parity_grp` accepts `-emulation`, which the manual's syntax line leaves out but mainframe-capable systems use. The generator records it as an addition.
 

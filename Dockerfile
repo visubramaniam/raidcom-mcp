@@ -31,6 +31,10 @@ COPY package.json package-lock.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY spec ./spec
+# The server needs only the node binary. npm, npx, corepack and yarn ship in the base image with their own bundled
+# dependencies (which is where vulnerability scanners find outdated packages such as undici), so remove them.
+RUN rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+           /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 USER node
 # Default: MCP over stdio (docker run -i). To host it over HTTP, set RAIDCOM_TRANSPORT=http, RAIDCOM_HTTP_HOST=0.0.0.0,
 # RAIDCOM_HTTP_TOKEN and RAIDCOM_HTTP_BEHIND_TLS_PROXY=true (see README.docker.md).

@@ -211,3 +211,23 @@ test("each step waits for the asynchronous commands of the steps before it, even
   // within a step, commands run back to back
   assert.ok(!lines.slice(0, lastLdev).some((l) => l.includes("get command_status")));
 });
+
+test("each batch of asynchronous commands starts with raidcom reset command_status (issue #28)", () => {
+  const r = buildScript(catalog, {
+    steps: [
+      { command: "add ldev", options: { "-pool": 0, "-ldev_id": "{n}", "-capacity": "10G" }, foreach: { n: "300-301" } },
+      { command: "get ldev", options: { "-ldev_id": 300 } },
+      { command: "add lun", options: { "-port": ["CL1-A-0"], "-ldev_id": "{n}" }, foreach: { n: "300-301" } },
+    ],
+    global: { instance: 2 },
+  });
+  assert.ok(r.ok, r.errors.join(";"));
+  const lines = r.script.split("\n").filter((l) => l.startsWith("run "));
+  // reset, the batch, get: once per batch
+  const kinds = lines.map((l) => (l.includes("reset command_status") ? "R" : l.includes("get command_status") ? "G" : l.includes(" add ") ? "A" : "O"));
+  assert.equal(kinds.join(""), "RAAGORAAG", lines.join("\n"));
+  assert.ok(lines[0] === "run raidcom reset command_status -I2");
+  // a script with no asynchronous commands has no reset
+  const ro = buildScript(catalog, { steps: [{ command: "get ldev", options: { "-ldev_id": 1 } }] });
+  assert.ok(!ro.script.includes("reset command_status"));
+});

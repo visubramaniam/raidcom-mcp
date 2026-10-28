@@ -2,6 +2,8 @@
 
 [![npm](https://img.shields.io/npm/v/raidcom-mcp)](https://www.npmjs.com/package/raidcom-mcp) [![Release](https://github.com/visubramaniam/raidcom-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/visubramaniam/raidcom-mcp/actions/workflows/release.yml) [![CI](https://github.com/visubramaniam/raidcom-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/visubramaniam/raidcom-mcp/actions/workflows/ci.yml)
 
+[![Hitachi raidcom command builder (Community) MCP server](https://mcprush.com/badge/hitachi-raidcom-command-builder-community-mcp/card.svg)](https://mcprush.com/to/hitachi-raidcom-command-builder-community-mcp?ref=badge)
+
 A community MCP server that turns a request such as *"present four 100 GB volumes from pool 0 to host esx01 on CL1-A and CL2-A"* into validated `raidcom` commands. It is **build-only**: it never connects to a storage system, never runs a command and holds no credentials. It returns command text (or a shell script) for a person to review and run on a host with CCI installed. That makes it safe to host online for anyone to use.
 
 It is an independent project, not an official Hitachi Vantara product.

@@ -1,0 +1,45 @@
+name: Wiki
+
+# Publishes docs/wiki/ to the repository's GitHub wiki, so the wiki is reviewed in pull requests like the rest of
+# the docs. Runs when a merge to main changes docs/wiki/, or by hand. The wiki must exist first: create any page once
+# in the GitHub web interface (Wiki → Create the first page); this workflow then replaces it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/wiki/**
+      - .github/workflows/wiki.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Push docs/wiki to the wiki
+        env:
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if ! git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/${REPO}.wiki.git" wiki; then
+            echo "::error::The wiki repository doesn't exist yet. Open the repository's Wiki tab, create any first page, then re-run this workflow."
+            exit 1
+          fi
+          # replace everything except the wiki's own git data
+          find wiki -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R docs/wiki/. wiki/
+          cd wiki
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "Wiki already up to date"; exit 0; fi
+          git commit -m "Update from docs/wiki at ${GITHUB_SHA::7}"
+          git push

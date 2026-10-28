@@ -137,6 +137,10 @@ npm test
 
 runs the unit tests (`tests/unit`) and the search evaluation (`tests/search-eval.mjs`: 40 tuning and 30 held-out requests, each with a minimum top-1 and top-3 score that may only go up, and a check that results rated high-confidence are right at least 85% of the time). `npm run package` builds the release packages and `npm run smoke` tests the npm package as installed.
 
+## Documentation
+
+The [wiki](https://github.com/visubramaniam/raidcom-mcp/wiki) has a quick start, deployment guide, tools and recipe reference, troubleshooting and more.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Security problems: [SECURITY.md](SECURITY.md). Privacy: [PRIVACY.md](PRIVACY.md).

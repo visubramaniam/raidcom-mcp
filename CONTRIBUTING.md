@@ -39,6 +39,10 @@ Don't include serial numbers, WWNs, host names, IP addresses or user names from 
 
 TypeScript, strict, ESM. Comments explain why. No new runtime dependencies without a strong reason.
 
+## The wiki
+
+The [wiki](https://github.com/visubramaniam/raidcom-mcp/wiki) is generated from `docs/wiki/`: edit the Markdown files there in a pull request, and the Wiki workflow publishes them when it's merged. Page names come from file names (`Quick-Start.md` is the page *Quick Start*), and `[[Page Name]]` links between pages.
+
 ## Common changes
 
 ### Improving search

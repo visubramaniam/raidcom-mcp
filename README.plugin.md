@@ -53,4 +53,4 @@ Each plugin version installs the matching `raidcom-mcp` version. The plugin move
 
 ## Privacy
 
-The server runs on your computer, makes no network requests and stores nothing. Requests you make to Claude go to Anthropic as usual; the plugin adds nothing to them beyond the tool results.
+The server runs on your computer, makes no network requests and stores nothing. Requests you make to Claude go to Anthropic as usual; the plugin adds nothing to them beyond the tool results. [PRIVACY.md](PRIVACY.md) covers the public instance as well.

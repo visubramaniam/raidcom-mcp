@@ -55,10 +55,59 @@ function tidy(env: NodeJS.ProcessEnv): Partial<Record<(typeof SETTINGS)[number],
 }
 type Settings = ReturnType<typeof tidy>;
 
-/** A true/false setting: true or false in any case; unset or empty is false. Anything else stops the server, so a typo can't quietly turn a setting off. */
-function bool(env: Settings, name: (typeof SETTINGS)[number]): boolean {
+/**
+ * Environment variables that look like raidcom-mcp settings but aren't one: a misspelt name, or a name with a stray
+ * space, which would otherwise be ignored without a word. Each message names the variable exactly (in quotes, so
+ * spaces show) and the closest real setting. Values are never included.
+ */
+export function unknownSettings(env: NodeJS.ProcessEnv = process.env): string[] {
+  const known: string[] = [...SETTINGS, "RAIDCOM_HTTP_TOKEN"];
+  const out: string[] = [];
+  for (const name of Object.keys(env)) {
+    if (!/RAIDCOM/i.test(name) || known.includes(name)) continue;
+    const want = name.trim().toUpperCase();
+    const closest = known.map((k) => ({ k, d: levenshtein(k, want) })).sort((a, b) => a.d - b.d)[0];
+    const hint = known.includes(want) ? ` It differs from ${want} only in spaces or case.` : closest.d <= 4 ? ` Did you mean ${closest.k}?` : "";
+    out.push(`[raidcom-mcp] warning: ignoring unknown setting ${JSON.stringify(name)}.${hint}`);
+  }
+  return out;
+}
+
+function levenshtein(a: string, b: string): number {
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let diag = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = prev[j];
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diag = tmp;
+    }
+  }
+  return prev[b.length];
+}
+
+/** One line describing how the HTTP server finds the client address and limits requests; no secrets. */
+export function describeHttp(cfg: HttpConfig): string {
+  const client = cfg.clientIpHeader
+    ? `the ${cfg.clientIpHeader} header${cfg.trustProxy ? `, else X-Forwarded-For with ${cfg.trustProxy} prox${cfg.trustProxy === 1 ? "y" : "ies"}` : ""}`
+    : cfg.trustProxy
+      ? `X-Forwarded-For with ${cfg.trustProxy} prox${cfg.trustProxy === 1 ? "y" : "ies"}`
+      : "the connection (no proxy settings)";
+  return [
+    `client address from ${client}`,
+    `rate limit ${cfg.rateLimitPerMinute ? `${cfg.rateLimitPerMinute}/min per client` : "off"}`,
+    `hosts ${cfg.allowedHosts.length ? cfg.allowedHosts.join(",") : "loopback only"}`,
+    `TLS ${cfg.tls ? "by this server" : cfg.behindTlsProxy ? "by the proxy in front" : "off"}`,
+    `debug client ${cfg.debugClient ? "on (/healthz shows forwarding headers)" : "off"}`,
+  ].join("; ");
+}
+
+/** A true/false setting: true or false in any case; unset or empty gives the default. Anything else stops the server, so a typo can't quietly turn a setting off. */
+function bool(env: Settings, name: (typeof SETTINGS)[number], fallback = false): boolean {
   const v = (env[name] ?? "").toLowerCase();
-  if (v === "" || v === "false") return false;
+  if (v === "") return fallback;
+  if (v === "false") return false;
   if (v === "true") return true;
   throw new Error(`[raidcom-mcp] ${name} must be true or false, not "${env[name]}"`);
 }
@@ -102,7 +151,7 @@ export interface HttpConfig {
    * whatever the client sent in the header.
    */
   clientIpHeader?: string;
-  /** /healthz also shows the forwarding headers it received, to find the right proxy settings. */
+  /** /healthz also shows the forwarding headers it received, to find the right proxy settings. On unless set to false. */
   debugClient: boolean;
 }
 
@@ -199,6 +248,7 @@ export function loadHttpConfig(rawEnv = process.env): HttpConfig | undefined {
     rateLimitPerMinute: Math.floor(rate),
     trustProxy: proxyHops(env.RAIDCOM_HTTP_TRUST_PROXY),
     clientIpHeader: clientHeader(env.RAIDCOM_HTTP_CLIENT_IP_HEADER),
-    debugClient: bool(env, "RAIDCOM_HTTP_DEBUG_CLIENT"),
+    // on unless turned off: it only shows callers the forwarding headers of their own request
+    debugClient: bool(env, "RAIDCOM_HTTP_DEBUG_CLIENT", true),
   };
 }

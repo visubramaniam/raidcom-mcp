@@ -99,7 +99,7 @@ The endpoint is `/mcp` (stateless Streamable HTTP); `/healthz` reports liveness.
 | `RAIDCOM_HTTP_ALLOWED_ORIGINS` | none | `Origin` values to accept (`*` for any) |
 | `RAIDCOM_HTTP_RATE_LIMIT` | `120` | Requests per minute per client (`0` for none) |
 | `RAIDCOM_HTTP_CLIENT_IP_HEADER` | none | A header your proxy sets to the client's address, e.g. `cf-connecting-ip` behind Cloudflare (Render uses Cloudflare). Takes precedence over `X-Forwarded-For` |
-| `RAIDCOM_HTTP_DEBUG_CLIENT` | `false` | `/healthz` also shows the forwarding headers it received, to choose the two settings above |
+| `RAIDCOM_HTTP_DEBUG_CLIENT` | `true` | `/healthz` also shows the forwarding headers it received (the caller's own request), to choose the two settings above. Set to `false` to turn it off |
 | `RAIDCOM_HTTP_TRUST_PROXY` | `false` | Take the client address from `X-Forwarded-For`: `true` for one proxy in front, or the number of proxies (see [INSTALL.md](INSTALL.md#run-over-http)) |
 | `RAIDCOM_CATALOG`, `RAIDCOM_LIMITS`, `RAIDCOM_RECIPES`, `RAIDCOM_EXAMPLES` | bundled | Use another spec file (an empty `RAIDCOM_EXAMPLES` turns the example questions off) |
 

@@ -44,6 +44,18 @@ test("port and rate limit are validated", () => {
   assert.equal(loadHttpConfig({ ...base, RAIDCOM_HTTP_RATE_LIMIT: "0" }).rateLimitPerMinute, 0);
 });
 
+test("values are trimmed and true/false settings ignore case; anything else is an error", () => {
+  const base = { RAIDCOM_TRANSPORT: " http\n", RAIDCOM_HTTP_OPEN: "True " };
+  const c = loadHttpConfig({ ...base, RAIDCOM_HTTP_DEBUG_CLIENT: "true\n", RAIDCOM_HTTP_CLIENT_IP_HEADER: " cf-connecting-ip ", RAIDCOM_HTTP_PORT: " 10000 ", RAIDCOM_HTTP_TRUST_PROXY: "TRUE" });
+  assert.equal(c.token, "");
+  assert.equal(c.debugClient, true);
+  assert.equal(c.clientIpHeader, "cf-connecting-ip");
+  assert.equal(c.port, 10000);
+  assert.equal(c.trustProxy, 1);
+  assert.throws(() => loadHttpConfig({ ...base, RAIDCOM_HTTP_DEBUG_CLIENT: "yes" }), /must be true or false/);
+  assert.equal(loadHttpConfig({ ...base, RAIDCOM_HTTP_DEBUG_CLIENT: "FALSE" }).debugClient, false);
+});
+
 test("isLoopback", () => {
   for (const h of ["localhost", "127.0.0.1", "127.1.2.3", "::1", "[::1]"]) assert.ok(isLoopback(h), h);
   for (const h of ["0.0.0.0", "10.0.0.1", "example.com", "::"]) assert.ok(!isLoopback(h), h);

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.7 — 2026-10-28
+
+### Changed
+
+- **Every tool has a title, and `destructiveHint: false` alongside `readOnlyHint: true`**, as the Anthropic MCP directory requires of all applicable annotations.
+
 ## 0.1.6 — 2026-10-28
 
 ### Added

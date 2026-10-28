@@ -27,8 +27,10 @@ environment variables decide.
 ## Asynchronous commands
 
 Many changing commands (`add ldev`, `add lun` with `-request_id auto`, `modify ldev -status ...`, pool and
-parity group operations) return before the array has finished. Run `raidcom get command_status` afterwards; an
-empty error column means success. Give a code from the SSB columns to `raidcom get error_message` to read the
+parity group operations) return before the array has finished. Run `raidcom reset command_status` before them and
+`raidcom get command_status` afterwards; an empty error column means success. The array keeps only the first error
+of a login session until it is reset, so without the reset, `get command_status` can report an old failure and hide
+the error codes of a new one. Give a code from the SSB columns to `raidcom get error_message` to read the
 reason. Only a limited number of asynchronous commands can be queued at once, so very large batches should be
 split.
 

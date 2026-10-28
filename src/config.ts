@@ -64,9 +64,24 @@ export interface HttpConfig {
    * address is the entry that many places from the right: the one the outermost trusted proxy added.
    */
   trustProxy: number;
+  /**
+   * A header that a trusted proxy sets to the client's address, such as cf-connecting-ip behind Cloudflare. Takes
+   * precedence over X-Forwarded-For. Only set it when every request passes through that proxy, which overwrites
+   * whatever the client sent in the header.
+   */
+  clientIpHeader?: string;
+  /** /healthz also shows the forwarding headers it received, to find the right proxy settings. */
+  debugClient: boolean;
 }
 
 const MIN_TOKEN_LENGTH = 32;
+
+/** RAIDCOM_HTTP_CLIENT_IP_HEADER: a header name, lower-cased. */
+function clientHeader(v: string | undefined): string | undefined {
+  if (!v) return undefined;
+  if (!/^[A-Za-z0-9-]{1,64}$/.test(v)) throw new Error(`[raidcom-mcp] RAIDCOM_HTTP_CLIENT_IP_HEADER must be a header name such as cf-connecting-ip, not "${v}"`);
+  return v.toLowerCase();
+}
 
 /** RAIDCOM_HTTP_TRUST_PROXY: unset or false → 0, true → 1, or a number of proxies from 1 to 10. */
 function proxyHops(v: string | undefined): number {
@@ -148,5 +163,7 @@ export function loadHttpConfig(env = process.env): HttpConfig | undefined {
     behindTlsProxy,
     rateLimitPerMinute: Math.floor(rate),
     trustProxy: proxyHops(env.RAIDCOM_HTTP_TRUST_PROXY),
+    clientIpHeader: clientHeader(env.RAIDCOM_HTTP_CLIENT_IP_HEADER),
+    debugClient: env.RAIDCOM_HTTP_DEBUG_CLIENT === "true",
   };
 }

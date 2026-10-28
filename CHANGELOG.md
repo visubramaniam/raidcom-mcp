@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.3 — 2026-10-28
+
+### Added
+
+- **`RAIDCOM_HTTP_CLIENT_IP_HEADER`** reads the client's address from a header a trusted proxy sets, such as `cf-connecting-ip` behind Cloudflare. On Render, which sits behind Cloudflare, counting `X-Forwarded-For` entries gave a Cloudflare address, so every user shared the rate limit and the in-progress cap of their Cloudflare edge.
+- **`RAIDCOM_HTTP_DEBUG_CLIENT=true`** makes `/healthz` show the forwarding headers it received, to choose the proxy settings.
+
 ## 0.1.2 — 2026-10-27
 
 0.1.0 and 0.1.1 were withdrawn from npm and can't be published again there; this is the first version on npm since. 0.1.1's GitHub release and Docker image stay available.

@@ -121,6 +121,8 @@ Clients that add servers as connectors (Claude, Microsoft 365 Copilot) can't sen
 | `RAIDCOM_HTTP_CLIENT_IP_HEADER` | none | A header your proxy sets to the client's address, e.g. `cf-connecting-ip` behind Cloudflare (Render uses Cloudflare). Takes precedence over `X-Forwarded-For` |
 | `RAIDCOM_HTTP_DEBUG_CLIENT` | `true` | `/healthz` also shows the forwarding headers it received (the caller's own request), to choose the two settings above. Set to `false` to turn it off |
 | `RAIDCOM_HTTP_TRUST_PROXY` | `false` | Take the client address from `X-Forwarded-For`: `true` for one proxy in front, or the number of proxies (see [INSTALL.md](INSTALL.md#run-over-http)) |
+| `MCPRUSH_TOKEN` | none | Token issued by the [mcprush](https://mcprush.com) marketplace. Adds a second endpoint (below) that answers only requests carrying it in `x-mcprush-token`; `/mcp` is unchanged |
+| `RAIDCOM_HTTP_MCPRUSH_PATH` | `/mcprush` | Path of that endpoint |
 | `RAIDCOM_CATALOG`, `RAIDCOM_LIMITS`, `RAIDCOM_RECIPES`, `RAIDCOM_EXAMPLES` | bundled | Use another spec file (an empty `RAIDCOM_EXAMPLES` turns the example questions off) |
 
 Values are trimmed, and true/false settings accept any case; any other value for them stops the server with a message. At startup the server warns about `RAIDCOM_` variables it doesn't recognise (a misspelt name, or one with a stray space), and over HTTP logs one line with its effective settings.

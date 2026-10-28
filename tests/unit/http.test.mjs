@@ -157,3 +157,24 @@ test("one client holding slow requests open can't take every slot", async () => 
     srv.c.kill();
   }
 });
+
+test("the mcprush endpoint needs the x-mcprush-token header; /mcp is unchanged", async () => {
+  const MT = "mgw_test_token_1234567890";
+  const srv = await start({ RAIDCOM_HTTP_OPEN: "true", MCPRUSH_TOKEN: MT, RAIDCOM_HTTP_RATE_LIMIT: "2" });
+  const u = new URL(srv.url);
+  const at = (path, headers = {}) => fetch(new URL(path, u), { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...headers }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }) });
+  try {
+    const no = await at("/mcprush");
+    assert.equal(no.status, 401);
+    const body = await no.json();
+    assert.equal(body.error.code, -32001);
+    assert.match(body.error.message, /mcprush only/);
+    assert.equal((await at("/mcprush", { "x-mcprush-token": "wrong" })).status, 401);
+    // exempt from the per-client rate limit (2 a minute here)
+    for (let i = 0; i < 4; i++) assert.equal((await at("/mcprush", { "x-mcprush-token": MT })).status, 200);
+    // the open endpoint still answers without any header
+    assert.equal((await at("/mcp")).status, 200);
+  } finally {
+    srv.c.kill();
+  }
+});

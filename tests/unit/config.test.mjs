@@ -86,3 +86,14 @@ test("the HTTP summary line describes the proxy settings and never the token", (
   assert.match(line, /debug client on/);
   assert.doesNotMatch(line, /tttt/);
 });
+
+test("the mcprush endpoint is configured by MCPRUSH_TOKEN and an optional path", () => {
+  const base = { RAIDCOM_TRANSPORT: "http", RAIDCOM_HTTP_OPEN: "true" };
+  assert.equal(loadHttpConfig(base).mcprush, undefined);
+  assert.deepEqual(loadHttpConfig({ ...base, MCPRUSH_TOKEN: " mgw_abcdefghijklmnop " }).mcprush, { path: "/mcprush", token: "mgw_abcdefghijklmnop" });
+  assert.equal(loadHttpConfig({ ...base, MCPRUSH_TOKEN: "mgw_abcdefghijklmnop", RAIDCOM_HTTP_MCPRUSH_PATH: "/gw/mcp" }).mcprush.path, "/gw/mcp");
+  assert.throws(() => loadHttpConfig({ ...base, MCPRUSH_TOKEN: "short" }), /at least 16/);
+  assert.throws(() => loadHttpConfig({ ...base, MCPRUSH_TOKEN: "mgw_abcdefghijklmnop", RAIDCOM_HTTP_MCPRUSH_PATH: "/mcp" }), /other than \/mcp/);
+  assert.throws(() => loadHttpConfig({ ...base, RAIDCOM_HTTP_MCPRUSH_PATH: "/x" }), /MCPRUSH_TOKEN is not/);
+  assert.doesNotMatch(describeHttp(loadHttpConfig({ ...base, MCPRUSH_TOKEN: "mgw_abcdefghijklmnop" })), /mgw_/);
+});

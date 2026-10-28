@@ -37,7 +37,7 @@ const SETTINGS = [
   "RAIDCOM_CATALOG", "RAIDCOM_LIMITS", "RAIDCOM_RECIPES", "RAIDCOM_EXAMPLES", "RAIDCOM_TRANSPORT",
   "RAIDCOM_HTTP_HOST", "RAIDCOM_HTTP_PORT", "RAIDCOM_HTTP_OPEN", "RAIDCOM_HTTP_TLS_CERT", "RAIDCOM_HTTP_TLS_KEY",
   "RAIDCOM_HTTP_BEHIND_TLS_PROXY", "RAIDCOM_HTTP_ALLOWED_HOSTS", "RAIDCOM_HTTP_ALLOWED_ORIGINS", "RAIDCOM_HTTP_RATE_LIMIT",
-  "RAIDCOM_HTTP_TRUST_PROXY", "RAIDCOM_HTTP_CLIENT_IP_HEADER", "RAIDCOM_HTTP_DEBUG_CLIENT",
+  "RAIDCOM_HTTP_TRUST_PROXY", "RAIDCOM_HTTP_CLIENT_IP_HEADER", "RAIDCOM_HTTP_DEBUG_CLIENT", "RAIDCOM_HTTP_MCPRUSH_PATH",
 ] as const;
 
 /**
@@ -100,6 +100,7 @@ export function describeHttp(cfg: HttpConfig): string {
     `hosts ${cfg.allowedHosts.length ? cfg.allowedHosts.join(",") : "loopback only"}`,
     `TLS ${cfg.tls ? "by this server" : cfg.behindTlsProxy ? "by the proxy in front" : "off"}`,
     `debug client ${cfg.debugClient ? "on (/healthz shows forwarding headers)" : "off"}`,
+    `mcprush endpoint ${cfg.mcprush ? cfg.mcprush.path : "off"}`,
   ].join("; ");
 }
 
@@ -130,6 +131,12 @@ export interface HttpConfig {
   port: number;
   /** Bearer token clients must send. Empty means the endpoint is open, which needs RAIDCOM_HTTP_OPEN=true. */
   token: string;
+  /**
+   * A second MCP endpoint for the mcprush marketplace gateway: requests to `path` must carry the `x-mcprush-token`
+   * header with this token, and are exempt from the bearer token and the per-client limits (all of mcprush's
+   * traffic comes from mcprush). Set by MCPRUSH_TOKEN; the main endpoint is unchanged.
+   */
+  mcprush?: { path: string; token: string };
   /** Extra Host header values to accept, beyond the loopback names for the port in use. Required for a public name. */
   allowedHosts: string[];
   /** Origin header values to accept. Requests with any other Origin are refused; most MCP clients send none. */
@@ -156,6 +163,20 @@ export interface HttpConfig {
 }
 
 const MIN_TOKEN_LENGTH = 32;
+
+/** MCPRUSH_TOKEN and RAIDCOM_HTTP_MCPRUSH_PATH: the mcprush gateway endpoint, if a token is set. */
+function mcprushEndpoint(token: string | undefined, path: string | undefined): HttpConfig["mcprush"] {
+  if (!token) {
+    if (path) throw new Error("[raidcom-mcp] RAIDCOM_HTTP_MCPRUSH_PATH is set but MCPRUSH_TOKEN is not");
+    return undefined;
+  }
+  if (token.length < 16 || /\s/.test(token)) throw new Error("[raidcom-mcp] MCPRUSH_TOKEN must be the token mcprush issued (at least 16 characters, no spaces)");
+  const p = path || "/mcprush";
+  if (!/^\/[A-Za-z0-9._~/-]{1,63}$/.test(p) || p === "/mcp" || p === "/healthz") {
+    throw new Error(`[raidcom-mcp] RAIDCOM_HTTP_MCPRUSH_PATH must be a path such as /mcprush, other than /mcp and /healthz, not "${p}"`);
+  }
+  return { path: p, token };
+}
 
 /** RAIDCOM_HTTP_CLIENT_IP_HEADER: a header name, lower-cased. */
 function clientHeader(v: string | undefined): string | undefined {
@@ -250,5 +271,6 @@ export function loadHttpConfig(rawEnv = process.env): HttpConfig | undefined {
     clientIpHeader: clientHeader(env.RAIDCOM_HTTP_CLIENT_IP_HEADER),
     // on unless turned off: it only shows callers the forwarding headers of their own request
     debugClient: bool(env, "RAIDCOM_HTTP_DEBUG_CLIENT", true),
+    mcprush: mcprushEndpoint(rawEnv.MCPRUSH_TOKEN?.trim(), env.RAIDCOM_HTTP_MCPRUSH_PATH),
   };
 }

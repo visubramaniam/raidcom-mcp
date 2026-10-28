@@ -195,3 +195,19 @@ test("a step that is not an object, or has a non-text title, is an error", () =>
   assert.match(buildScript(catalog, { steps: [null] }).errors[0], /needs a command name/);
   assert.ok(buildScript(catalog, { steps: [{ title: 5, command: "get port" }] }).ok);
 });
+
+test("each step waits for the asynchronous commands of the steps before it, even when it is asynchronous too", () => {
+  const r = buildScript(catalog, {
+    steps: [
+      { command: "add ldev", options: { "-pool": 0, "-ldev_id": "{n}", "-capacity": "10G" }, foreach: { n: "300-301" } },
+      { command: "add lun", options: { "-port": ["CL1-A-0"], "-ldev_id": "{n}" }, foreach: { n: "300-301" } },
+    ],
+  });
+  assert.ok(r.ok, r.errors.join(";"));
+  const lines = r.script.split("\n").filter((l) => l.startsWith("run "));
+  const lastLdev = lines.findLastIndex((l) => l.includes("add ldev"));
+  const firstLun = lines.findIndex((l) => l.includes("add lun"));
+  assert.ok(lines.slice(lastLdev, firstLun).some((l) => l.includes("get command_status")), lines.join("\n"));
+  // within a step, commands run back to back
+  assert.ok(!lines.slice(0, lastLdev).some((l) => l.includes("get command_status")));
+});

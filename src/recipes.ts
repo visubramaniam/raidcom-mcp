@@ -254,8 +254,10 @@ export function buildScript(catalog: Catalog, req: ScriptRequest, params: Scope 
       errors.push(`${label}: the script would have more than ${MAX_COMMANDS} commands`);
       return;
     }
-    // a step that starts with a command that is not asynchronous first waits for the pending asynchronous ones
-    if (catalog.find(step.command) && !catalog.find(step.command)!.async) flushAsync();
+    // Every step waits for the asynchronous commands of the steps before it: a later step usually works on what they
+    // create (add lun on a new LDEV, initialize ldev after add ldev), and raidcom refuses it until they've finished.
+    // Commands within one step don't depend on each other, so they still run back to back.
+    flushAsync();
     if (title) lines.push("", `# ${title.replace(/[\r\n]+/g, " ")}`);
     for (const combo of combos) {
       const scope: Scope = { ...params, ...combo };

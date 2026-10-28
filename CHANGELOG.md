@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.8 — 2026-10-28
+
+### Fixed
+
+- **Scripts now wait for asynchronous commands before every later step.** Before, a step only waited when its own command was synchronous, so `add ldev` followed by `add lun` (both asynchronous) ran without a `raidcom get command_status` in between, and `add lun` could fail on an LDEV still being created. The same applied to `add ldev` followed by `initialize ldev` in the mainframe pool recipe.
+
 ## 0.1.7 — 2026-10-28
 
 ### Changed

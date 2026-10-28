@@ -1,7 +1,7 @@
 {
   "name": "raidcom-community",
   "displayName": "Hitachi raidcom command builder (Community)",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Community MCP server that builds and validates Hitachi raidcom commands and scripts from plain-language requests. Build-only: it never connects to a storage system. Not an official Hitachi Vantara product.",
   "author": {
     "name": "Vinod Subramaniam",
@@ -10,14 +10,23 @@
   "homepage": "https://github.com/visubramaniam/raidcom-mcp",
   "repository": "https://github.com/visubramaniam/raidcom-mcp",
   "license": "MIT",
-  "keywords": ["hitachi", "raidcom", "cci", "storage", "vsp", "provisioning"],
+  "keywords": [
+    "hitachi",
+    "raidcom",
+    "cci",
+    "storage",
+    "vsp",
+    "provisioning"
+  ],
   "documentationUrl": "https://github.com/visubramaniam/raidcom-mcp/blob/main/README.plugin.md",
   "privacyPolicyUrl": "https://github.com/visubramaniam/raidcom-mcp/blob/main/README.plugin.md#privacy",
   "supportUrl": "https://github.com/visubramaniam/raidcom-mcp/issues",
   "mcpServers": {
     "raidcom": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/node_modules/raidcom-mcp/dist/index.js"]
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/node_modules/raidcom-mcp/dist/index.js"
+      ]
     }
   }
 }

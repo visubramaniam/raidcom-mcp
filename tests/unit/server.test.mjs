@@ -79,3 +79,14 @@ test("resources and prompts are served", async () => {
   const { prompts } = (await call("prompts/list")).result;
   assert.equal(prompts.length, 2);
 });
+
+test("every tool has a title and complete annotations (MCP directory requirement)", async () => {
+  const { tools } = (await call("tools/list")).result;
+  for (const t of tools) {
+    assert.ok(t.title && t.title.length <= 64, `${t.name} has no title`);
+    assert.equal(t.annotations.title, t.title);
+    assert.equal(t.annotations.readOnlyHint, true, t.name);
+    assert.equal(t.annotations.destructiveHint, false, t.name);
+    assert.ok(t.name.length <= 64);
+  }
+});

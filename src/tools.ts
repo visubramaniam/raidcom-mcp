@@ -68,6 +68,7 @@ export function tools(): Tool[] {
   return [
     {
       name: "raidcom_list_commands",
+      title: "Find raidcom commands",
       description:
         "Find raidcom commands. Use this first when you do not know the exact command name. With no arguments, lists every object (ldev, lun, host_grp, pool, ...) with the actions available on it. " +
         "With `query` (plain words, e.g. \"map a volume to a host group\", \"grow a pool\", \"show free ldev ids\"), ranks matching commands and rates the confidence of the top result. " +
@@ -81,10 +82,11 @@ export function tools(): Tool[] {
           limit: { type: "integer", minimum: 1, maximum: 40, description: "Maximum results for a query (default 10)." },
         },
       },
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: { title: "Find raidcom commands", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     {
       name: "raidcom_describe_command",
+      title: "Describe a raidcom command",
       description:
         "Everything needed to build one raidcom command: what it does, which models support it, whether it is read-only, destructive or asynchronous, each syntax form, every option with the number and kind of values it takes " +
         "(and the words it accepts, where it accepts only a few), and examples. Call it before raidcom_build_command when you are unsure which options a command needs or which of its syntax forms fits the request.",
@@ -96,10 +98,11 @@ export function tools(): Tool[] {
         },
         required: ["command"],
       },
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: { title: "Describe a raidcom command", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     {
       name: "raidcom_build_command",
+      title: "Build a raidcom command",
       description:
         "Build one raidcom command from structured arguments and validate it. Nothing is executed and no storage system is contacted: you get command text to review and run elsewhere. " +
         "Unknown options, wrong value counts, missing required options, bad port names and out-of-range LDEV, LUN, pool and serial numbers are reported as errors with a fix. " +
@@ -116,10 +119,11 @@ export function tools(): Tool[] {
         },
         required: ["command"],
       },
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: { title: "Build a raidcom command", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     {
       name: "raidcom_check_command",
+      title: "Check a raidcom command line",
       description:
         "Validate and explain a raidcom command line the user already has (for example one pasted from a runbook). It is parsed, not executed: shell operators such as ; | & > are refused. " +
         "Returns the normalised command, what each option means, and every problem found. Credentials after -login are dropped.",
@@ -132,10 +136,11 @@ export function tools(): Tool[] {
         },
         required: ["command_line"],
       },
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: { title: "Check a raidcom command line", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     {
       name: "raidcom_build_script",
+      title: "Build a raidcom script",
       description:
         "Build a shell script of raidcom commands from steps. Each step is a command with options, optionally repeated with `foreach` (every combination) or `zip` (values advance together), so \"create LDEVs 100 to 109 in pool 0, then map each to port CL1-A\" is two steps. " +
         "Every expanded command is validated; the script is returned only if all of them are valid, otherwise you get the errors per step. The script checks each command's exit status, adds `raidcom get command_status` after asynchronous commands, " +
@@ -153,10 +158,11 @@ export function tools(): Tool[] {
         },
         required: ["steps"],
       },
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: { title: "Build a raidcom script", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     {
       name: "raidcom_list_recipes",
+      title: "List raidcom recipes",
       description:
         "Ready-made workflows: provision volumes to an FC, iSCSI or NVMe/TCP host, create or grow a pool, create a mainframe (3390) pool, extend or delete volumes, create a command device, reclaim zero pages, read-only inventory, copy groups. " +
         "With no arguments lists them. With `recipe`, shows its parameters and steps. With `query`, ranks recipes by keyword. Use raidcom_build_recipe to turn one into a script.",
@@ -167,10 +173,11 @@ export function tools(): Tool[] {
           query: { type: "string", description: "Words describing the task, e.g. \"new ESXi host\"." },
         },
       },
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: { title: "List raidcom recipes", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     {
       name: "raidcom_build_recipe",
+      title: "Build a raidcom recipe script",
       description:
         "Build the script for a recipe from its parameters (see raidcom_list_recipes). Lists such as ldev_ids accept ranges: [\"100-109\"]. " +
         "Example: recipe provision-fc-volumes with {\"pool\": 0, \"ldev_ids\": [\"100-103\"], \"capacity\": \"100G\", \"ports\": [\"CL1-A\", \"CL2-A\"], \"host_grp\": \"esx01\", \"host_mode\": \"VMWARE_EX\", \"wwns\": [\"210000e08b0256f8\"]}. " +
@@ -188,14 +195,15 @@ export function tools(): Tool[] {
         },
         required: ["recipe", "params"],
       },
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: { title: "Build a raidcom recipe script", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
     {
       name: "raidcom_model_limits",
+      title: "Show storage model limits",
       description:
         "Valid parameter ranges for a storage model (serial number, LDEV ID, pool ID, LU number, port names), taken from the Command Reference appendices. Without `model`, lists the models.",
       inputSchema: { type: "object", properties: { model: modelSchema } },
-      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      annotations: { title: "Show storage model limits", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
   ];
 }

@@ -95,7 +95,13 @@ export class RateLimiter {
  * proxy added. Entries further left come from the client and can say anything. (Same rule as Express's
  * `trust proxy` set to a number.)
  */
-export function clientAddress(req: IncomingMessage, hops: number): string {
+export function clientAddress(req: IncomingMessage, hops: number, header?: string): string {
+  // a header the proxy sets to the client's address, such as cf-connecting-ip; used only if it holds an IP address
+  if (header) {
+    const raw = req.headers[header];
+    const v = (Array.isArray(raw) ? raw[0] : raw)?.trim();
+    if (v && /^[0-9A-Fa-f:.]{2,45}$/.test(v)) return v;
+  }
   if (hops > 0) {
     const xff = req.headers["x-forwarded-for"];
     const entries = (Array.isArray(xff) ? xff.join(",") : (xff ?? "")).split(",").map((s) => s.trim()).filter(Boolean);
@@ -116,7 +122,7 @@ export async function startHttp(cfg: HttpConfig, createServer: () => Server): Pr
   const perClient = new Map<string, number>();
 
   const refuse = (req: IncomingMessage, res: ServerResponse, status: number, message: string, headers?: Record<string, string>) => {
-    console.error(`[raidcom-mcp] refused ${req.method} ${req.url} from ${clientAddress(req, cfg.trustProxy)}: ${status} ${message}`);
+    console.error(`[raidcom-mcp] refused ${req.method} ${req.url} from ${clientAddress(req, cfg.trustProxy, cfg.clientIpHeader)}: ${status} ${message}`);
     reject(res, status, message, headers);
   };
 
@@ -126,14 +132,24 @@ export async function startHttp(cfg: HttpConfig, createServer: () => Server): Pr
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
       // Behind proxies, the health check also shows the address the server takes as the caller's, so the number of
       // proxies (RAIDCOM_HTTP_TRUST_PROXY) can be checked: it should be your own public address.
-      const body = { status: "ok", version: VERSION, ...(cfg.trustProxy ? { client: clientAddress(req, cfg.trustProxy) } : {}) };
+      const proxied = cfg.trustProxy > 0 || !!cfg.clientIpHeader;
+      const seen = (h: string) => (Array.isArray(req.headers[h]) ? (req.headers[h] as string[]).join(", ") : req.headers[h]);
+      const body = {
+        status: "ok",
+        version: VERSION,
+        ...(proxied ? { client: clientAddress(req, cfg.trustProxy, cfg.clientIpHeader) } : {}),
+        // RAIDCOM_HTTP_DEBUG_CLIENT=true: what the proxies sent, to choose RAIDCOM_HTTP_TRUST_PROXY or _CLIENT_IP_HEADER
+        ...(cfg.debugClient
+          ? { forwarding: { socket: req.socket.remoteAddress, "x-forwarded-for": seen("x-forwarded-for"), "cf-connecting-ip": seen("cf-connecting-ip"), "true-client-ip": seen("true-client-ip"), "x-real-ip": seen("x-real-ip") } }
+          : {}),
+      };
       return res.end(req.method === "HEAD" ? undefined : JSON.stringify(body));
     }
     if (path !== MCP_PATH) return reject(res, 404, `Not found. The MCP endpoint is ${MCP_PATH}.`);
     if (!anyHost && !hosts.has((req.headers.host ?? "").toLowerCase())) return refuse(req, res, 403, "Host not allowed. Add it to RAIDCOM_HTTP_ALLOWED_HOSTS if this name should reach the server.");
     const origin = req.headers.origin;
     if (origin !== undefined && !anyOrigin && !origins.has(origin.toLowerCase())) return refuse(req, res, 403, "Origin not allowed. Add it to RAIDCOM_HTTP_ALLOWED_ORIGINS if this page should reach the server.");
-    const client = clientAddress(req, cfg.trustProxy);
+    const client = clientAddress(req, cfg.trustProxy, cfg.clientIpHeader);
     if (!limiter.allow(client)) return refuse(req, res, 429, "Too many requests. Try again in a minute.", { "retry-after": "60" });
     if (token && !authorized(req.headers.authorization, token)) return refuse(req, res, 401, "Missing or wrong bearer token.", { "www-authenticate": 'Bearer realm="raidcom-mcp"' });
     // Stateless: no standalone SSE stream (GET) and no session to end (DELETE).

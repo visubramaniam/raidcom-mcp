@@ -115,6 +115,12 @@ test("the client address behind a proxy is the entry the proxy added (rightmost)
   assert.equal(clientAddress(req("9.9.9.9, 1.2.3.4"), 0), "10.0.0.1");
   // three proxies: client spoof, real client, proxy 1, proxy 2 → the real client
   assert.equal(clientAddress(req("6.6.6.6, 203.0.113.7, 10.1.1.1, 10.2.2.2"), 3), "203.0.113.7");
+  // a client-address header set by the proxy wins, but only when it holds an address
+  const cf = (v) => ({ headers: { "x-forwarded-for": "9.9.9.9, 10.0.0.2", "cf-connecting-ip": v }, socket: { remoteAddress: "10.0.0.1" } });
+  assert.equal(clientAddress(cf("76.240.80.82"), 1, "cf-connecting-ip"), "76.240.80.82");
+  assert.equal(clientAddress(cf("2001:db8::1"), 0, "cf-connecting-ip"), "2001:db8::1");
+  assert.equal(clientAddress(cf("not an address"), 1, "cf-connecting-ip"), "10.0.0.2");
+  assert.equal(clientAddress(cf(undefined), 0, "cf-connecting-ip"), "10.0.0.1");
   // fewer entries than proxies: the leftmost
   assert.equal(clientAddress(req("203.0.113.7"), 3), "203.0.113.7");
 });

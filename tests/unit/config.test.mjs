@@ -30,6 +30,9 @@ test("non-loopback addresses need TLS or a declared proxy", () => {
   assert.equal(loadHttpConfig({ ...base, RAIDCOM_HTTP_BEHIND_TLS_PROXY: "true", RAIDCOM_HTTP_TRUST_PROXY: "false" }).trustProxy, 0);
   assert.equal(loadHttpConfig({ ...base, RAIDCOM_HTTP_BEHIND_TLS_PROXY: "true" }).trustProxy, 0);
   assert.throws(() => loadHttpConfig({ ...base, RAIDCOM_HTTP_BEHIND_TLS_PROXY: "true", RAIDCOM_HTTP_TRUST_PROXY: "yes" }), /number of proxies/);
+  assert.equal(loadHttpConfig({ ...base, RAIDCOM_HTTP_BEHIND_TLS_PROXY: "true", RAIDCOM_HTTP_CLIENT_IP_HEADER: "CF-Connecting-IP" }).clientIpHeader, "cf-connecting-ip");
+  assert.throws(() => loadHttpConfig({ ...base, RAIDCOM_HTTP_BEHIND_TLS_PROXY: "true", RAIDCOM_HTTP_CLIENT_IP_HEADER: "x y" }), /header name/);
+  assert.equal(loadHttpConfig({ ...base, RAIDCOM_HTTP_BEHIND_TLS_PROXY: "true", RAIDCOM_HTTP_DEBUG_CLIENT: "true" }).debugClient, true);
   assert.throws(() => loadHttpConfig({ ...base, RAIDCOM_HTTP_TLS_CERT: "/nonexistent" }), /both RAIDCOM_HTTP_TLS_CERT and RAIDCOM_HTTP_TLS_KEY/);
 });
 

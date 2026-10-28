@@ -1,0 +1,15 @@
+**raidcom-mcp**
+
+- [[Home]]
+- [[Quick Start]]
+- [[Deploying]]
+- [[How It Works]]
+- [[Tools Reference]]
+- [[Recipes]]
+- [[Configuration]]
+- [[Why MCP instead of RAG]]
+- [[Security and Privacy]]
+- [[Troubleshooting]]
+- [[FAQ]]
+- [[Contributing]]
+- [[Release Process]]

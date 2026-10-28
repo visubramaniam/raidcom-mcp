@@ -1,7 +1,7 @@
 {
   "name": "raidcom-community",
   "displayName": "Hitachi raidcom command builder (Community)",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "Community MCP server that builds and validates Hitachi raidcom commands and scripts from plain-language requests. Build-only: it never connects to a storage system. Not an official Hitachi Vantara product.",
   "author": {
     "name": "Vinod Subramaniam",

@@ -1,10 +1,10 @@
 {
   "name": "raidcom-community-plugin",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "private": true,
   "description": "Dependencies of the raidcom-community Claude plugin: the raidcom-mcp server, installed by Claude Code from package-lock.json.",
   "license": "MIT",
   "dependencies": {
-    "raidcom-mcp": "0.1.6"
+    "raidcom-mcp": "0.1.8"
   }
 }

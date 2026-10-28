@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.4 — 2026-10-28
+
+### Fixed
+
+- **Settings with a stray space or line break were silently ignored.** `RAIDCOM_HTTP_DEBUG_CLIENT="true "` (easy to enter in a hosting dashboard's multi-line value box) counted as off. Every `RAIDCOM_` value is now trimmed, true/false settings accept any case, and any other value for them stops the server with a message naming the setting.
+
 ## 0.1.3 — 2026-10-28
 
 ### Added

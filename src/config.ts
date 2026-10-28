@@ -32,7 +32,26 @@ export interface ServerConfig {
   examplesPath: string;
 }
 
-export function loadServerConfig(env = process.env): ServerConfig {
+/**
+ * The environment with surrounding spaces and line breaks removed from every RAIDCOM_ value. Hosting dashboards
+ * often use multi-line boxes for values, where a stray space or newline is easy to add and impossible to see.
+ */
+function tidy(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const out: NodeJS.ProcessEnv = { ...env };
+  for (const [k, v] of Object.entries(env)) if (k.startsWith("RAIDCOM_") && typeof v === "string") out[k] = v.trim();
+  return out;
+}
+
+/** A true/false setting: true or false in any case; unset or empty is false. Anything else stops the server, so a typo can't quietly turn a setting off. */
+function bool(env: NodeJS.ProcessEnv, name: string): boolean {
+  const v = (env[name] ?? "").toLowerCase();
+  if (v === "" || v === "false") return false;
+  if (v === "true") return true;
+  throw new Error(`[raidcom-mcp] ${name} must be true or false, not "${env[name]}"`);
+}
+
+export function loadServerConfig(rawEnv = process.env): ServerConfig {
+  const env = tidy(rawEnv);
   return {
     catalogPath: env.RAIDCOM_CATALOG || bundled("spec", "raidcom-catalog.json"),
     limitsPath: env.RAIDCOM_LIMITS || bundled("spec", "limits.json"),
@@ -84,7 +103,8 @@ function clientHeader(v: string | undefined): string | undefined {
 }
 
 /** RAIDCOM_HTTP_TRUST_PROXY: unset or false → 0, true → 1, or a number of proxies from 1 to 10. */
-function proxyHops(v: string | undefined): number {
+function proxyHops(raw: string | undefined): number {
+  const v = raw?.toLowerCase();
   if (v === undefined || v === "" || v === "false" || v === "0") return 0;
   if (v === "true") return 1;
   if (/^\d+$/.test(v) && Number(v) >= 1 && Number(v) <= 10) return Number(v);
@@ -125,7 +145,8 @@ function loadTls(env: NodeJS.ProcessEnv): HttpConfig["tls"] {
  * still guarded: a bearer token (or an explicit RAIDCOM_HTTP_OPEN=true), TLS for any address other machines can
  * reach, and a per-client rate limit.
  */
-export function loadHttpConfig(env = process.env): HttpConfig | undefined {
+export function loadHttpConfig(rawEnv = process.env): HttpConfig | undefined {
+  const env = tidy(rawEnv);
   const transport = (env.RAIDCOM_TRANSPORT || "stdio").toLowerCase();
   if (transport === "stdio") return undefined;
   if (transport !== "http") throw new Error(`[raidcom-mcp] RAIDCOM_TRANSPORT must be stdio or http, not "${env.RAIDCOM_TRANSPORT}"`);
@@ -133,7 +154,7 @@ export function loadHttpConfig(env = process.env): HttpConfig | undefined {
   const port = Number(env.RAIDCOM_HTTP_PORT ?? 8361);
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`[raidcom-mcp] RAIDCOM_HTTP_PORT must be a port number, not "${env.RAIDCOM_HTTP_PORT}"`);
   const token = env.RAIDCOM_HTTP_TOKEN ?? "";
-  const open = env.RAIDCOM_HTTP_OPEN === "true";
+  const open = bool(env, "RAIDCOM_HTTP_OPEN");
   if (token && token.length < MIN_TOKEN_LENGTH) {
     throw new Error(`[raidcom-mcp] RAIDCOM_HTTP_TOKEN must be at least ${MIN_TOKEN_LENGTH} characters. Generate one with: openssl rand -hex 32`);
   }
@@ -144,7 +165,7 @@ export function loadHttpConfig(env = process.env): HttpConfig | undefined {
     );
   }
   const tls = loadTls(env);
-  const behindTlsProxy = env.RAIDCOM_HTTP_BEHIND_TLS_PROXY === "true";
+  const behindTlsProxy = bool(env, "RAIDCOM_HTTP_BEHIND_TLS_PROXY");
   if (!isLoopback(host) && !tls && !behindTlsProxy) {
     throw new Error(
       `[raidcom-mcp] RAIDCOM_HTTP_HOST=${host} would accept connections from other machines over plain HTTP. ` +
@@ -164,6 +185,6 @@ export function loadHttpConfig(env = process.env): HttpConfig | undefined {
     rateLimitPerMinute: Math.floor(rate),
     trustProxy: proxyHops(env.RAIDCOM_HTTP_TRUST_PROXY),
     clientIpHeader: clientHeader(env.RAIDCOM_HTTP_CLIENT_IP_HEADER),
-    debugClient: env.RAIDCOM_HTTP_DEBUG_CLIENT === "true",
+    debugClient: bool(env, "RAIDCOM_HTTP_DEBUG_CLIENT"),
   };
 }

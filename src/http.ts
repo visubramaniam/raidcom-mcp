@@ -41,9 +41,9 @@ function hostNames(cfg: HttpConfig, port: number): Set<string> {
   return new Set([...names.map((n) => `${n}:${port}`), ...cfg.allowedHosts].map((h) => h.toLowerCase()));
 }
 
-function reject(res: ServerResponse, status: number, message: string, headers: Record<string, string> = {}) {
+function reject(res: ServerResponse, status: number, message: string, headers: Record<string, string> = {}, code = -32000) {
   res.writeHead(status, { "content-type": "application/json", ...headers });
-  res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message }, id: null }));
+  res.end(JSON.stringify({ jsonrpc: "2.0", error: { code, message }, id: null }));
 }
 
 class TooLarge extends Error {}
@@ -113,6 +113,7 @@ export function clientAddress(req: IncomingMessage, hops: number, header?: strin
 /** Starts listening, over HTTPS when a certificate is set; resolves once the port is open, with the URL clients should use. */
 export async function startHttp(cfg: HttpConfig, createServer: () => Server): Promise<{ url: string; server: HttpServer }> {
   const token = cfg.token ? digest(cfg.token) : undefined;
+  const gateway = cfg.mcprush ? { path: cfg.mcprush.path, token: digest(cfg.mcprush.token) } : undefined;
   const origins = new Set(cfg.allowedOrigins.map((o) => o.toLowerCase()));
   const anyOrigin = origins.has("*");
   let hosts = new Set<string>();
@@ -121,9 +122,9 @@ export async function startHttp(cfg: HttpConfig, createServer: () => Server): Pr
   let active = 0;
   const perClient = new Map<string, number>();
 
-  const refuse = (req: IncomingMessage, res: ServerResponse, status: number, message: string, headers?: Record<string, string>) => {
+  const refuse = (req: IncomingMessage, res: ServerResponse, status: number, message: string, headers?: Record<string, string>, code?: number) => {
     console.error(`[raidcom-mcp] refused ${req.method} ${req.url} from ${clientAddress(req, cfg.trustProxy, cfg.clientIpHeader)}: ${status} ${message}`);
-    reject(res, status, message, headers);
+    reject(res, status, message, headers, code);
   };
 
   const handler = async (req: IncomingMessage, res: ServerResponse) => {
@@ -145,23 +146,32 @@ export async function startHttp(cfg: HttpConfig, createServer: () => Server): Pr
       };
       return res.end(req.method === "HEAD" ? undefined : JSON.stringify(body));
     }
-    if (path !== MCP_PATH) return reject(res, 404, `Not found. The MCP endpoint is ${MCP_PATH}.`);
+    // the mcprush gateway's own endpoint, when MCPRUSH_TOKEN is set; everything else about the server is the same
+    const viaGateway = gateway !== undefined && path === gateway.path;
+    if (path !== MCP_PATH && !viaGateway) return reject(res, 404, `Not found. The MCP endpoint is ${MCP_PATH}.`);
     if (!anyHost && !hosts.has((req.headers.host ?? "").toLowerCase())) return refuse(req, res, 403, "Host not allowed. Add it to RAIDCOM_HTTP_ALLOWED_HOSTS if this name should reach the server.");
     const origin = req.headers.origin;
     if (origin !== undefined && !anyOrigin && !origins.has(origin.toLowerCase())) return refuse(req, res, 403, "Origin not allowed. Add it to RAIDCOM_HTTP_ALLOWED_ORIGINS if this page should reach the server.");
+    if (viaGateway) {
+      const sent = req.headers["x-mcprush-token"];
+      if (typeof sent !== "string" || !timingSafeEqual(digest(sent), gateway.token)) return refuse(req, res, 401, "This endpoint answers mcprush only.", {}, -32001);
+    }
     const client = clientAddress(req, cfg.trustProxy, cfg.clientIpHeader);
-    if (!limiter.allow(client)) return refuse(req, res, 429, "Too many requests. Try again in a minute.", { "retry-after": "60" });
-    if (token && !authorized(req.headers.authorization, token)) return refuse(req, res, 401, "Missing or wrong bearer token.", { "www-authenticate": 'Bearer realm="raidcom-mcp"' });
+    // mcprush's traffic all comes from mcprush, so its endpoint is exempt from the per-client limits and the bearer
+    // token (it has its own); the overall limit on requests in progress still applies
+    if (!viaGateway && !limiter.allow(client)) return refuse(req, res, 429, "Too many requests. Try again in a minute.", { "retry-after": "60" });
+    if (!viaGateway && token && !authorized(req.headers.authorization, token)) return refuse(req, res, 401, "Missing or wrong bearer token.", { "www-authenticate": 'Bearer realm="raidcom-mcp"' });
     // Stateless: no standalone SSE stream (GET) and no session to end (DELETE).
     if (req.method !== "POST") return reject(res, 405, "Method not allowed. Send MCP requests with POST.", { allow: "POST" });
     if (active >= MAX_CONCURRENT) return reject(res, 503, "Too many requests in progress. Try again shortly.", { "retry-after": "1" });
     const mine = perClient.get(client) ?? 0;
-    if (mine >= MAX_PER_CLIENT) return refuse(req, res, 429, "Too many requests in progress from this address. Try again shortly.", { "retry-after": "1" });
+    if (!viaGateway && mine >= MAX_PER_CLIENT) return refuse(req, res, 429, "Too many requests in progress from this address. Try again shortly.", { "retry-after": "1" });
 
     active++;
-    perClient.set(client, mine + 1);
+    if (!viaGateway) perClient.set(client, mine + 1);
     res.on("close", () => {
       active--;
+      if (viaGateway) return;
       const n = (perClient.get(client) ?? 1) - 1;
       if (n > 0) perClient.set(client, n);
       else perClient.delete(client);

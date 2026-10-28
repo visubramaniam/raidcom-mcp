@@ -186,6 +186,8 @@ The public instance runs on Render as a Docker web service built from this repos
 | `RAIDCOM_HTTP_ALLOWED_HOSTS` | `raidcom-mcp.onrender.com` (or `*`) |
 | `RAIDCOM_HTTP_CLIENT_IP_HEADER` | `cf-connecting-ip` |
 
+To list the server on the [mcprush](https://mcprush.com) marketplace, also set `MCPRUSH_TOKEN` to the token mcprush issues and give mcprush the endpoint `https://raidcom-mcp.onrender.com/mcprush`. That endpoint answers only mcprush; `/mcp` stays open as before.
+
 Set them in one place: either on the service's own **Environment** page, or in an environment group linked to the service. A variable set on the service itself overrides the same name in a linked group, so a value edited in the group can silently have no effect. If a change doesn't seem to apply, check the `[raidcom-mcp] http:` line in the deploy log.
 
 ### Check that it works

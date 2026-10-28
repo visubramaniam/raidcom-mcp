@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.6 — 2026-10-28
+
+### Added
+
+- **An endpoint for the mcprush marketplace gateway.** With `MCPRUSH_TOKEN` set, `/mcprush` (or `RAIDCOM_HTTP_MCPRUSH_PATH`) answers only requests carrying that token in the `x-mcprush-token` header, and answers others with 401 and "This endpoint answers mcprush only." It is exempt from the bearer token and the per-client limits, as all its traffic comes from mcprush. `/mcp` is unchanged.
+
 ## 0.1.5 — 2026-10-28
 
 ### Added

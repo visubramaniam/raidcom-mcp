@@ -2,7 +2,8 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { request } from "node:http";
-import { RateLimiter } from "../../dist/http.js";
+import { RateLimiter, clientAddress, MAX_PER_CLIENT } from "../../dist/http.js";
+import { connect } from "node:net";
 
 const TOKEN = "t".repeat(40);
 let child;
@@ -102,5 +103,51 @@ test("an open endpoint must be asked for", async () => {
     assert.equal(r.status, 200);
   } finally {
     s.c.kill();
+  }
+});
+
+// ---------- regressions from the 2026-10-26 audit ----------
+
+test("the client address behind a proxy is the entry the proxy added (rightmost), not one the client wrote", () => {
+  const req = (xff) => ({ headers: { "x-forwarded-for": xff }, socket: { remoteAddress: "10.0.0.1" } });
+  assert.equal(clientAddress(req("9.9.9.9, 1.2.3.4"), 1), "1.2.3.4");
+  assert.equal(clientAddress(req(["9.9.9.9", "5.6.7.8"]), 1), "5.6.7.8");
+  assert.equal(clientAddress(req("9.9.9.9, 1.2.3.4"), 0), "10.0.0.1");
+  // three proxies: client spoof, real client, proxy 1, proxy 2 → the real client
+  assert.equal(clientAddress(req("6.6.6.6, 203.0.113.7, 10.1.1.1, 10.2.2.2"), 3), "203.0.113.7");
+  // fewer entries than proxies: the leftmost
+  assert.equal(clientAddress(req("203.0.113.7"), 3), "203.0.113.7");
+});
+
+test("the rate limiter's memory is bounded", () => {
+  const rl = new RateLimiter(5, () => 0);
+  for (let i = 0; i < 25_000; i++) rl.allow(`k${i}`);
+  assert.ok(rl.size <= 10_000, `${rl.size} addresses remembered`);
+});
+
+test("one client holding slow requests open can't take every slot", async () => {
+  const srv = await start({ RAIDCOM_HTTP_TOKEN: TOKEN, RAIDCOM_HTTP_RATE_LIMIT: "0" });
+  const u = new URL(srv.url);
+  const post = () => fetch(srv.url, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...auth }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }) });
+  const sockets = [];
+  try {
+    for (let i = 0; i < MAX_PER_CLIENT; i++) {
+      const s = connect(Number(u.port), u.hostname);
+      s.on("error", () => {});
+      s.write(`POST /mcp HTTP/1.1\r\nHost: ${u.host}\r\nAuthorization: Bearer ${TOKEN}\r\nContent-Type: application/json\r\nAccept: application/json, text/event-stream\r\nContent-Length: 100\r\n\r\n{`);
+      sockets.push(s);
+    }
+    await new Promise((r) => setTimeout(r, 300));
+    // this address is at its limit of requests in progress, so it can't take the slots everyone else needs
+    const r = await post();
+    assert.equal(r.status, 429);
+    assert.match(await r.text(), /in progress from this address/);
+    // the slots are given back when the connections close
+    sockets.forEach((s) => s.destroy());
+    await new Promise((r) => setTimeout(r, 300));
+    assert.equal((await post()).status, 200);
+  } finally {
+    sockets.forEach((s) => s.destroy());
+    srv.c.kill();
   }
 });

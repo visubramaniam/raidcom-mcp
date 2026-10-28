@@ -70,7 +70,8 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            awk -v v="$VERSION" '$0 ~ "^## " { f = (index($0, "## " v) == 1) ; next } f' CHANGELOG.md > notes.md
+            # the lines under the heading "## <version>" (exactly that version), up to the next "## " heading
+            awk -v v="$VERSION" '/^## / { f = ($2 == v); next } f' CHANGELOG.md > notes.md
             [ -s notes.md ] || echo "Release $VERSION" > notes.md
             gh release create "$TAG" --verify-tag --title "$VERSION" --notes-file notes.md
           fi
@@ -183,9 +184,14 @@ jobs:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           VERSION: ${{ needs.packages.outputs.version }}
         run: |
-          tags="$GHCR_IMAGE:$VERSION,$GHCR_IMAGE:latest"
+          set -o pipefail
+          # "latest" only moves forward: rebuilding an older release doesn't take it back
+          newest=$(git ls-remote --tags --refs "https://github.com/$GITHUB_REPOSITORY" 'v*' | sed 's#.*refs/tags/v##' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          if [ -z "$newest" ]; then echo "::error::could not list the release tags"; exit 1; fi
+          latest=""; [ "$newest" = "$VERSION" ] && latest=true
+          tags="$GHCR_IMAGE:$VERSION${latest:+,$GHCR_IMAGE:latest}"
           if [ -n "$DOCKERHUB_USERNAME" ]; then
-            tags="$tags,$IMAGE:$VERSION,$IMAGE:latest"
+            tags="$tags,$IMAGE:$VERSION${latest:+,$IMAGE:latest}"
             echo "dockerhub=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::DOCKERHUB_USERNAME and DOCKERHUB_TOKEN are not set; pushing to ghcr.io only"
@@ -212,3 +218,24 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.registries.outputs.tags }}
+
+  plugin-bump:
+    # Starts the Plugin release workflow, which opens the pull request that moves the plugin to this version. Only
+    # after npm has the version, because the plugin installs the server from npm.
+    runs-on: ubuntu-latest
+    needs: [packages, npm]
+    permissions:
+      actions: write
+    steps:
+      - name: Start the plugin bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.packages.outputs.version }}
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -o pipefail
+          # only the newest release moves the plugin; rebuilding an older release leaves it alone
+          newest=$(git ls-remote --tags --refs "https://github.com/$GH_REPO" 'v*' | sed 's#.*refs/tags/v##' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+          if [ "$newest" != "$VERSION" ]; then echo "::notice::$VERSION is not the newest release ($newest); the plugin is not moved"; exit 0; fi
+          gh workflow run plugin-release.yml --ref "$BRANCH" -f version="$VERSION"

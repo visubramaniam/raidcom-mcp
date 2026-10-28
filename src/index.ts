@@ -179,7 +179,7 @@ function buildScriptTool(args: Json) {
 function listRecipes(args: Json) {
   const id = str(args.recipe).trim();
   if (id) {
-    const r = recipes[id];
+    const r = Object.hasOwn(recipes, id) ? recipes[id] : undefined;
     if (!r) return text(`Unknown recipe "${id}". Recipes: ${Object.keys(recipes).join(", ")}.`, true);
     return json({ recipe: id, title: r.title, summary: r.summary, params: r.params, steps: r.steps.map((s) => ({ title: s.title, command: s.command, options: s.options, ...(s.foreach ? { foreach: s.foreach } : {}), ...(s.zip ? { zip: s.zip } : {}), ...(s.when ? { only_when_given: s.when } : {}) })), notes: r.notes });
   }
@@ -199,7 +199,7 @@ function listRecipes(args: Json) {
 
 function buildRecipeTool(args: Json) {
   const id = str(args.recipe).trim();
-  const recipe = recipes[id];
+  const recipe = Object.hasOwn(recipes, id) ? recipes[id] : undefined;
   if (!recipe) return text(`Unknown recipe "${id}". Recipes: ${Object.keys(recipes).join(", ")}.`, true);
   const r = buildRecipe(catalog, id, recipe, obj(args.params), {
     model: str(args.model) || undefined,

@@ -51,3 +51,29 @@ test("credentials after -login never reach the output", () => {
   const all = JSON.stringify(p);
   assert.ok(!all.includes("s3cret"));
 });
+
+// ---------- regressions from the 2026-10-26 audit ----------
+
+test("the two words after -login are always dropped, even when they look like options", () => {
+  const p = parseCommandLine(catalog, "raidcom get ldev -ldev_id 1 -login admin -Hunter2pw");
+  assert.ok(!JSON.stringify(p).includes("Hunter2pw"));
+  assert.ok(!JSON.stringify(p).includes("admin"));
+  assert.deepEqual(p.errors, []);
+});
+
+test("a bare -I is an error and a repeated option is reported", () => {
+  assert.match(parseCommandLine(catalog, "raidcom get ldev -ldev_id 1 -I").errors[0], /needs an instance number/);
+  assert.match(parseCommandLine(catalog, "raidcom get ldev -ldev_id 1 -ldev_id 2").warnings.join(), /given twice/);
+});
+
+test("pair types and instance numbers from a command line still pass the global checks", () => {
+  const p = parseCommandLine(catalog, "raidcom get ldev -ldev_id 1 -ISI3");
+  assert.equal(build(catalog, p.request).command, "raidcom get ldev -ldev_id 1 -ISI3");
+});
+
+test("repeated global options are reported, and a non-number unit is shown as written", () => {
+  assert.match(parseCommandLine(catalog, "raidcom get ldev -ldev_id 1 -I0 -I1").warnings.join(), /given twice/);
+  assert.match(parseCommandLine(catalog, "raidcom get ldev -ldev_id 1 -s 512345 -s 512346").warnings.join(), /given twice/);
+  const p = parseCommandLine(catalog, "raidcom get ldev -ldev_id 1 -u abc");
+  assert.match(build(catalog, p.request).errors.join(), /"abc"/);
+});

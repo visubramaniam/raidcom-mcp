@@ -18,6 +18,13 @@ export const HEALTH_PATH = "/healthz";
 export const MAX_BODY_BYTES = 256 * 1024;
 /** Requests handled at once; more get 503. */
 export const MAX_CONCURRENT = 64;
+/** Requests one client address may have in progress at once, so a single client can't take every slot. */
+export const MAX_PER_CLIENT = 8;
+/** A client has this long to send its headers, and this long to send the whole request (ms). */
+export const HEADERS_TIMEOUT_MS = 10_000;
+export const REQUEST_TIMEOUT_MS = 15_000;
+/** Client addresses the rate limiter remembers at most. */
+const MAX_TRACKED = 10_000;
 
 const digest = (s: string) => createHash("sha256").update(s).digest();
 
@@ -58,11 +65,21 @@ export class RateLimiter {
   private hits = new Map<string, { start: number; count: number }>();
   constructor(private perMinute: number, private now: () => number = Date.now) {}
 
+  /** Number of client addresses currently remembered (for tests). */
+  get size(): number {
+    return this.hits.size;
+  }
+
   /** True when the request is allowed. */
   allow(key: string): boolean {
     if (this.perMinute <= 0) return true;
     const t = this.now();
-    if (this.hits.size > 10_000) for (const [k, v] of this.hits) if (t - v.start >= 60_000) this.hits.delete(k);
+    if (this.hits.size >= MAX_TRACKED) {
+      for (const [k, v] of this.hits) if (t - v.start >= 60_000) this.hits.delete(k);
+      // still full: forget the oldest windows (a Map iterates in insertion order), so memory stays bounded and the
+      // sweep above runs rarely
+      if (this.hits.size >= MAX_TRACKED) for (const k of [...this.hits.keys()].slice(0, MAX_TRACKED / 2)) this.hits.delete(k);
+    }
     const h = this.hits.get(key);
     if (!h || t - h.start >= 60_000) {
       this.hits.set(key, { start: t, count: 1 });
@@ -72,11 +89,17 @@ export class RateLimiter {
   }
 }
 
-function clientAddress(req: IncomingMessage, trustProxy: boolean): string {
-  if (trustProxy) {
+/**
+ * The client's address. Each proxy appends the address it received the request from, so behind `hops` trusted
+ * proxies the client is the entry `hops` places from the right of X-Forwarded-For: the one the outermost trusted
+ * proxy added. Entries further left come from the client and can say anything. (Same rule as Express's
+ * `trust proxy` set to a number.)
+ */
+export function clientAddress(req: IncomingMessage, hops: number): string {
+  if (hops > 0) {
     const xff = req.headers["x-forwarded-for"];
-    const first = (Array.isArray(xff) ? xff[0] : xff)?.split(",")[0]?.trim();
-    if (first) return first;
+    const entries = (Array.isArray(xff) ? xff.join(",") : (xff ?? "")).split(",").map((s) => s.trim()).filter(Boolean);
+    if (entries.length) return entries[Math.max(0, entries.length - hops)];
   }
   return req.socket.remoteAddress ?? "unknown";
 }
@@ -90,6 +113,7 @@ export async function startHttp(cfg: HttpConfig, createServer: () => Server): Pr
   const anyHost = cfg.allowedHosts.includes("*");
   const limiter = new RateLimiter(cfg.rateLimitPerMinute);
   let active = 0;
+  const perClient = new Map<string, number>();
 
   const refuse = (req: IncomingMessage, res: ServerResponse, status: number, message: string, headers?: Record<string, string>) => {
     console.error(`[raidcom-mcp] refused ${req.method} ${req.url} from ${clientAddress(req, cfg.trustProxy)}: ${status} ${message}`);
@@ -100,20 +124,32 @@ export async function startHttp(cfg: HttpConfig, createServer: () => Server): Pr
     const path = (req.url ?? "").split("?")[0];
     if (path === HEALTH_PATH && (req.method === "GET" || req.method === "HEAD")) {
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-      return res.end(req.method === "HEAD" ? undefined : JSON.stringify({ status: "ok", version: VERSION }));
+      // Behind proxies, the health check also shows the address the server takes as the caller's, so the number of
+      // proxies (RAIDCOM_HTTP_TRUST_PROXY) can be checked: it should be your own public address.
+      const body = { status: "ok", version: VERSION, ...(cfg.trustProxy ? { client: clientAddress(req, cfg.trustProxy) } : {}) };
+      return res.end(req.method === "HEAD" ? undefined : JSON.stringify(body));
     }
     if (path !== MCP_PATH) return reject(res, 404, `Not found. The MCP endpoint is ${MCP_PATH}.`);
     if (!anyHost && !hosts.has((req.headers.host ?? "").toLowerCase())) return refuse(req, res, 403, "Host not allowed. Add it to RAIDCOM_HTTP_ALLOWED_HOSTS if this name should reach the server.");
     const origin = req.headers.origin;
     if (origin !== undefined && !anyOrigin && !origins.has(origin.toLowerCase())) return refuse(req, res, 403, "Origin not allowed. Add it to RAIDCOM_HTTP_ALLOWED_ORIGINS if this page should reach the server.");
-    if (!limiter.allow(clientAddress(req, cfg.trustProxy))) return refuse(req, res, 429, "Too many requests. Try again in a minute.", { "retry-after": "60" });
+    const client = clientAddress(req, cfg.trustProxy);
+    if (!limiter.allow(client)) return refuse(req, res, 429, "Too many requests. Try again in a minute.", { "retry-after": "60" });
     if (token && !authorized(req.headers.authorization, token)) return refuse(req, res, 401, "Missing or wrong bearer token.", { "www-authenticate": 'Bearer realm="raidcom-mcp"' });
     // Stateless: no standalone SSE stream (GET) and no session to end (DELETE).
     if (req.method !== "POST") return reject(res, 405, "Method not allowed. Send MCP requests with POST.", { allow: "POST" });
     if (active >= MAX_CONCURRENT) return reject(res, 503, "Too many requests in progress. Try again shortly.", { "retry-after": "1" });
+    const mine = perClient.get(client) ?? 0;
+    if (mine >= MAX_PER_CLIENT) return refuse(req, res, 429, "Too many requests in progress from this address. Try again shortly.", { "retry-after": "1" });
 
     active++;
-    res.on("close", () => active--);
+    perClient.set(client, mine + 1);
+    res.on("close", () => {
+      active--;
+      const n = (perClient.get(client) ?? 1) - 1;
+      if (n > 0) perClient.set(client, n);
+      else perClient.delete(client);
+    });
     let body: unknown;
     try {
       body = await readJson(req);
@@ -137,7 +173,10 @@ export async function startHttp(cfg: HttpConfig, createServer: () => Server): Pr
       if (!res.headersSent) reject(res, 500, "Internal server error.");
     }
   };
-  const http: HttpServer = cfg.tls ? createHttpsServer({ cert: cfg.tls.cert, key: cfg.tls.key }, handler) : createHttpServer(handler);
+  // A client that sends its request slowly would otherwise hold a slot for Node's default of five minutes. The
+  // timeouts are checked every second rather than Node's default of every 30 seconds.
+  const timeouts = { headersTimeout: HEADERS_TIMEOUT_MS, requestTimeout: REQUEST_TIMEOUT_MS, connectionsCheckingInterval: 1_000 };
+  const http: HttpServer = cfg.tls ? createHttpsServer({ ...timeouts, cert: cfg.tls.cert, key: cfg.tls.key }, handler) : createHttpServer(timeouts, handler);
 
   await new Promise<void>((resolve, rej) => {
     http.once("error", rej);

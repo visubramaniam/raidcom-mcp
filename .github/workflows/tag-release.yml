@@ -11,6 +11,11 @@ permissions:
   contents: write
   actions: write
 
+# two merges in quick succession must not both try to create the same tag
+concurrency:
+  group: tag-release
+  cancel-in-progress: false
+
 jobs:
   tag:
     runs-on: ubuntu-latest
@@ -26,7 +31,7 @@ jobs:
             echo "$tag already exists; nothing to release"
             exit 0
           fi
-          if ! grep -q "^## $version\b" CHANGELOG.md; then
+          if ! grep -qE "^## ${version//./\\.}( |$)" CHANGELOG.md; then
             echo "::error::CHANGELOG.md has no '## $version' section. Move the Unreleased notes under it before releasing."
             exit 1
           fi

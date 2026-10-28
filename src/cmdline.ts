@@ -60,7 +60,7 @@ export function parseCommandLine(catalog: Catalog, line: string): ParsedLine {
   const cmd = catalog.find(`${words[1]} ${words[2]}`);
   if (!cmd) return { errors: [`Unknown raidcom command "${words[1]} ${words[2]}". Closest: ${catalog.suggest(`${words[1]} ${words[2]}`).join(", ")}.`], warnings };
 
-  const options: Record<string, OptionValue> = {};
+  const options: Record<string, OptionValue> = Object.create(null);
   const global: GlobalOptions = {};
   const rest = words.slice(3);
   for (let i = 0; i < rest.length; ) {
@@ -75,23 +75,27 @@ export function parseCommandLine(catalog: Catalog, line: string): ParsedLine {
     if (!own) {
       const mi = instanceFlag.exec(w);
       if (mi) {
-        if (mi[2] !== undefined) global.instance = Number(mi[2]);
+        if (global.instance !== undefined) warnings.push(`${w}: the instance was given twice; the last one is used`);
+        if (mi[2] === undefined) errors.push(`${w} needs an instance number, for example -I0 or -IH0.`);
+        else global.instance = Number(mi[2]);
         if (mi[1]) global.pair_type = mi[1] as GlobalOptions["pair_type"];
         i++;
         continue;
       }
       const next = rest[i + 1];
       const hasValue = next !== undefined && !/^-[A-Za-z]/.test(next);
+      if ((w === "-s" || w === "-u") && hasValue && (w === "-s" ? global.serial : global.unit) !== undefined) warnings.push(`${w} was given twice; the last value is used`);
       if (w === "-s" && hasValue) { global.serial = next; i += 2; continue; }
-      if (w === "-u" && hasValue) { global.unit = Number(next); i += 2; continue; }
+      // a non-number stays text, so the error shows what was written
+      if (w === "-u" && hasValue) { global.unit = (/^\d+$/.test(next) ? Number(next) : next) as unknown as number; i += 2; continue; }
       if (w === "-fx") { global.fx = true; i++; continue; }
       if (w === "-nomsg") { global.nomsg = true; i++; continue; }
       if (w === "-checkmode" && hasValue) { global.checkmode = next as "precheck"; i += 2; continue; }
       if (w === "-store" && hasValue) { global.store = next; i += 2; continue; }
       if (w === "-login") {
         warnings.push("-login and its user name and password were left out; run raidcom -login separately so credentials stay out of command text.");
-        i++;
-        while (i < rest.length && !/^-[A-Za-z]/.test(rest[i])) i++;
+        // exactly the two words after -login are the user name and password, whatever they look like
+        i += 3;
         continue;
       }
       if (w === "-logout") { warnings.push("-logout was left out."); i++; continue; }
@@ -101,6 +105,7 @@ export function parseCommandLine(catalog: Catalog, line: string): ParsedLine {
     const values: string[] = [];
     let j = i + 1;
     while (j < rest.length && !/^-[A-Za-z]/.test(rest[j]) && (max === null || values.length < max)) values.push(rest[j++]);
+    if (Object.hasOwn(options, w)) warnings.push(`${w} was given twice; the last value is used`);
     options[w] = values.length ? values : true;
     i = j;
   }

@@ -59,11 +59,22 @@ export interface HttpConfig {
   behindTlsProxy: boolean;
   /** Requests per minute per client address (0 = no limit). */
   rateLimitPerMinute: number;
-  /** Read the client address from X-Forwarded-For (only when a trusted proxy sets it). */
-  trustProxy: boolean;
+  /**
+   * Number of proxies in front of the server that add to X-Forwarded-For (0: don't read the header). The client
+   * address is the entry that many places from the right: the one the outermost trusted proxy added.
+   */
+  trustProxy: number;
 }
 
 const MIN_TOKEN_LENGTH = 32;
+
+/** RAIDCOM_HTTP_TRUST_PROXY: unset or false → 0, true → 1, or a number of proxies from 1 to 10. */
+function proxyHops(v: string | undefined): number {
+  if (v === undefined || v === "" || v === "false" || v === "0") return 0;
+  if (v === "true") return 1;
+  if (/^\d+$/.test(v) && Number(v) >= 1 && Number(v) <= 10) return Number(v);
+  throw new Error(`[raidcom-mcp] RAIDCOM_HTTP_TRUST_PROXY must be true, false or the number of proxies in front of the server (1 to 10), not "${v}"`);
+}
 const list = (v: string | undefined) => (v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
 /** True for addresses that only this machine can reach. */
@@ -136,6 +147,6 @@ export function loadHttpConfig(env = process.env): HttpConfig | undefined {
     tls,
     behindTlsProxy,
     rateLimitPerMinute: Math.floor(rate),
-    trustProxy: env.RAIDCOM_HTTP_TRUST_PROXY === "true",
+    trustProxy: proxyHops(env.RAIDCOM_HTTP_TRUST_PROXY),
   };
 }

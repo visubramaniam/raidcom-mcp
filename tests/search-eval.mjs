@@ -19,6 +19,10 @@ for (const id of Object.keys(examples)) if (!id.startsWith("_") && !catalog.comm
 const index = new CommandIndex(catalog.commands.values(), process.env.EXAMPLES === "0" ? {} : examples);
 const checking = process.env.EXAMPLES !== "0";
 const failures = [];
+// How often the top result is right when search says its confidence is high, over both sets. The model builds
+// straight away on a high-confidence result, so this must stay high.
+const MIN_HIGH_PRECISION = 0.85;
+const high = { n: 0, right: 0 };
 
 function evaluate(label, cases) {
   const rankOf = (list, want) => { const i = list.findIndex((id) => want.includes(id)); return i < 0 ? Infinity : i + 1; };
@@ -28,6 +32,10 @@ function evaluate(label, cases) {
     const r = index.search(q, { limit: 10 });
     const rank = rankOf(r.hits.map((h) => h.name), want);
     if (rank === 1) s.top1++;
+    if (r.confidence === "high") {
+      high.n++;
+      if (rank === 1) high.right++;
+    }
     if (rank <= 3) s.top3++;
     if (rank < Infinity) s.mrr += 1 / rank;
     if (rank > 1) misses.push(`  #${rank === Infinity ? "-" : rank}  ${q}  (want ${want.join(" | ")}; got ${r.hits.slice(0, 3).map((h) => h.name).join(", ")})`);
@@ -43,6 +51,9 @@ function evaluate(label, cases) {
 
 evaluate("Tuning set", TUNING);
 evaluate("Held-out set", HELD_OUT);
+const precision = high.n ? high.right / high.n : 1;
+console.log(`High confidence: right ${high.right} of ${high.n} (${(precision * 100).toFixed(0)}%)`);
+if (checking && precision < MIN_HIGH_PRECISION) failures.push(`high-confidence precision ${precision.toFixed(2)} < ${MIN_HIGH_PRECISION}`);
 if (failures.length) {
   console.error(`Search regression:\n${failures.map((f) => `  ${f}`).join("\n")}`);
   process.exit(1);

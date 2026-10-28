@@ -126,7 +126,7 @@ export class CommandIndex {
     for (const w of words(query)) {
       if (STOPWORDS.has(w)) continue;
       out.set(stem(w), Math.max(out.get(stem(w)) ?? 0, 1));
-      for (const s of SYNONYMS[w] ?? []) for (const t of tokenize(s)) out.set(t, Math.max(out.get(t) ?? 0, 0.5));
+      for (const s of Object.hasOwn(SYNONYMS, w) ? SYNONYMS[w] : []) for (const t of tokenize(s)) out.set(t, Math.max(out.get(t) ?? 0, 0.5));
     }
     return out;
   }
@@ -164,7 +164,8 @@ export class CommandIndex {
       const lead = second ? top.score / second.score : 10;
       const coverage = [...terms.entries()].filter(([, w]) => w === 1).filter(([t]) => top.matched.includes(t)).length / Math.max([...terms.values()].filter((w) => w === 1).length, 1);
       if (lead >= 1.25 && coverage >= 0.6) { confidence = "high"; reason = `the top result leads the next by ${lead.toFixed(2)}x and matches most of the request's words`; }
-      else if (lead >= 1.1 || coverage >= 0.6) { confidence = "medium"; reason = `the top result leads by ${lead.toFixed(2)}x and matches ${(coverage * 100).toFixed(0)}% of the request's words`; }
+      // a tie at the top is never better than low, however many words matched
+      else if (lead >= 1.1) { confidence = "medium"; reason = `the top result leads by ${lead.toFixed(2)}x and matches ${(coverage * 100).toFixed(0)}% of the request's words`; }
       else reason = `the top results are close (${lead.toFixed(2)}x) and match ${(coverage * 100).toFixed(0)}% of the request's words`;
     }
     return { hits: hits.slice(0, limit), confidence, reason };

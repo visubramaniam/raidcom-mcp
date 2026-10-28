@@ -37,7 +37,7 @@ test("every recipe step names an existing command and parameters that exist", ()
   for (const [id, recipe] of Object.entries(recipes)) {
     for (const s of recipe.steps) {
       assert.ok(catalog.find(s.command), `${id}: unknown command ${s.command}`);
-      if (s.when) assert.ok(s.when in recipe.params, `${id}: when=${s.when} is not a parameter`);
+      for (const w of [s.when ?? []].flat()) assert.ok(w in recipe.params, `${id}: when=${w} is not a parameter`);
     }
   }
 });
@@ -91,7 +91,9 @@ test("zip pairs values; foreach is a product; limits hold", () => {
   const z = buildScript(catalog, { steps: [{ command: "add lun", options: { "-port": ["CL1-A-0"], "-ldev_id": "{l}", "-lun_id": "{u}" }, zip: { l: "100-102", u: "0-2" } }] });
   assert.ok(z.ok);
   assert.deepEqual(z.commands.map((c) => c.command), ["raidcom add lun -port CL1-A-0 -ldev_id 100 -lun_id 0", "raidcom add lun -port CL1-A-0 -ldev_id 101 -lun_id 1", "raidcom add lun -port CL1-A-0 -ldev_id 102 -lun_id 2"]);
-  assert.ok(!buildScript(catalog, { steps: [{ command: "add lun", options: {}, zip: { a: "1-3", b: "1-2" } }] }).ok);
+  const mismatch = buildScript(catalog, { steps: [{ command: "add lun", options: { "-port": ["CL1-A-0"], "-ldev_id": "{a}", "-lun_id": "{b}" }, zip: { a: "1-3", b: "1-2" } }] });
+  assert.ok(!mismatch.ok);
+  assert.match(mismatch.errors[0], /zip lists must have the same length/);
   assert.ok(!buildScript(catalog, { steps: [{ command: "get ldev", options: { "-ldev_id": "{n}" }, foreach: { n: "0-400", m: "0-400" } }] }).ok);
 });
 
@@ -130,4 +132,66 @@ test("expandList handles CU:LDEV ranges", () => {
   assert.deepEqual(expandList("dd:fe-de:01"), ["dd:fe", "dd:ff", "de:00", "de:01"]);
   assert.deepEqual(expandList(["DD:00-DD:01", "dd:05"]), ["DD:00", "DD:01", "dd:05"]);
   assert.throws(() => expandList("dd:05-dd:01"), /backwards/);
+});
+
+// ---------- regressions from the 2026-10-26 audit ----------
+
+const steps1 = [{ command: "add ldev", options: { "-pool": 0, "-ldev_id": 1, "-capacity": "1G" } }];
+
+test("global options are validated before anything is written into a script", () => {
+  for (const g of [{ instance: 0, pair_type: "$(id)" }, { instance: "0;id" }, { instance: -1 }, { pair_type: "H;id", instance: 1 }]) {
+    const r = buildScript(catalog, { steps: steps1, global: g, lock_resource: true, login: true });
+    assert.ok(!r.ok, JSON.stringify(g));
+    assert.equal(r.script, undefined);
+    assert.match(r.errors[0], /^global: /);
+  }
+  // also when the steps would expand to nothing
+  const r = buildScript(catalog, { steps: [{ command: "get ldev", options: { "-ldev_id": "{x}" }, foreach: { x: [] } }], global: { instance: "0;id" } });
+  assert.ok(!r.ok);
+  const okr = buildScript(catalog, { steps: steps1, global: { instance: 2, pair_type: "H" }, lock_resource: true });
+  assert.ok(okr.ok);
+  assert.ok(okr.script.includes("run raidcom lock resource -IH2"));
+});
+
+test("a script with no commands, an empty foreach or an empty zip is an error", () => {
+  assert.match(buildScript(catalog, { steps: [{ command: "get ldev", options: { "-ldev_id": "{x}" }, foreach: { x: [] } }] }).errors[0], /x has no values/);
+  assert.match(buildScript(catalog, { steps: [{ command: "get ldev", options: { "-ldev_id": 1 }, zip: {} }] }).errors[0], /zip is empty/);
+  assert.match(buildScript(catalog, { steps: [] }).errors[0], /non-empty/);
+});
+
+test("huge ranges and lists stop at the limit instead of hanging", () => {
+  const t0 = Date.now();
+  // too many digits to be an exact number: kept as text (which the builder then refuses), never looped over
+  assert.deepEqual(expandList(["9007199254740992-9007199254740994"]), ["9007199254740992-9007199254740994"]);
+  assert.ok(!buildScript(catalog, { steps: [{ command: "get ldev", options: { "-ldev_id": "{x}" }, foreach: { x: "9007199254740992-9007199254740994" } }] }).ok);
+  const big = buildScript(catalog, { steps: [{ command: "get ldev", options: { "-ldev_id": "{x}" }, foreach: { x: Array(20000).fill("0-499") } }] });
+  assert.ok(!big.ok);
+  const bigZip = buildScript(catalog, { steps: [{ command: "get ldev", options: { "-ldev_id": "{x}" }, zip: { x: Array(20000).fill("0-499") } }] });
+  assert.ok(!bigZip.ok);
+  assert.throws(() => expandList(Array(20000).fill("0-499")), /more than 500/);
+  assert.ok(Date.now() - t0 < 1000, `took ${Date.now() - t0} ms`);
+});
+
+test("odd step shapes and prototype names are errors, not crashes or silent drops", () => {
+  assert.ok(!buildScript(catalog, { steps: [{ command: "get ldev", options: { "-ldev_id": { a: 1 } } }] }).ok);
+  const proto = buildScript(catalog, { steps: [{ command: "get ldev", options: JSON.parse('{"-ldev_id": 1, "__proto__": "x"}') }] });
+  assert.ok(!proto.ok);
+  assert.match(proto.errors.join(), /__proto__/);
+  assert.ok(!buildScript(catalog, { steps: [{ command: "get ldev", options: { "-ldev_id": "{constructor}" } }] }).ok);
+  assert.ok(!buildScript(catalog, { steps: [{ command: "get ldev", options: { "-ldev_id": "{x}" }, foreach: { "a b": [1] } }] }).ok);
+  const r = buildRecipe(catalog, "grow-dp-pool", recipes["grow-dp-pool"], JSON.parse('{"pool_id": 1, "pool_ldevs": ["204"], "toString": 1}'));
+  assert.match(r.errors.join(), /Unknown parameter "toString"/);
+});
+
+test("create-dp-pool: one threshold without the other is an error, not silently dropped", () => {
+  const base = { pool_id: 1, pool_name: "p1", pool_ldevs: ["200-201"] };
+  const r = buildRecipe(catalog, "create-dp-pool", recipes["create-dp-pool"], { ...base, depletion_threshold: 80 });
+  assert.ok(!r.ok);
+  assert.match(r.errors[0], /together/);
+  assert.ok(buildRecipe(catalog, "create-dp-pool", recipes["create-dp-pool"], base).ok);
+});
+
+test("a step that is not an object, or has a non-text title, is an error", () => {
+  assert.match(buildScript(catalog, { steps: [null] }).errors[0], /needs a command name/);
+  assert.ok(buildScript(catalog, { steps: [{ title: 5, command: "get port" }] }).ok);
 });

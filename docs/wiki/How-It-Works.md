@@ -42,7 +42,7 @@ It also records whether a command reads, changes or destroys (`get`/`delete`/`in
 `raidcom_build_script` takes steps, each a command with options, optionally repeated with `foreach` (every combination) or `zip` (values advance together). `{var}` in option values is filled from the loop. Every expanded command goes through the same validator; the script is returned only if all of them pass. The script:
 
 - uses a `run` wrapper that stops at the first failure;
-- adds `raidcom get command_status` after asynchronous commands, before the next step that depends on them;
+- starts each batch of asynchronous commands with `raidcom reset command_status` (the array keeps only the first error per session until it's reset) and ends it with `raidcom get command_status`, before the next step runs;
 - can wrap everything in `raidcom lock resource` / `unlock resource`, and add `raidcom -login` reading `$RAIDCOM_USER`/`$RAIDCOM_PASSWORD` from the shell;
 - exports `HORCMINST` and any variables a recipe needs.
 

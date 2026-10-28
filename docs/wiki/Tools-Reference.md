@@ -45,7 +45,7 @@ All eight tools are annotated read-only and non-destructive: they return text an
   "lock_resource": true
 }
 ```
-→ a script that locks the resource group, creates four LDEVs, waits with `get command_status`, maps LDEV 300 to LUN 0, 301 to LUN 1, and so on, then unlocks.
+→ a script that locks the resource group, resets the asynchronous error status, creates four LDEVs and checks them with `get command_status`, then does the same for mapping LDEV 300 to LUN 0, 301 to LUN 1, and so on, and unlocks.
 
 **raidcom_build_recipe**
 ```json

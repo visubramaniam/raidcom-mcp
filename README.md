@@ -1,5 +1,7 @@
 # raidcom-mcp: build Hitachi raidcom commands from plain-language requests
 
+[![npm](https://img.shields.io/npm/v/raidcom-mcp)](https://www.npmjs.com/package/raidcom-mcp) [![Release](https://github.com/visubramaniam/raidcom-mcp/actions/workflows/release.yml/badge.svg)](https://github.com/visubramaniam/raidcom-mcp/actions/workflows/release.yml) [![CI](https://github.com/visubramaniam/raidcom-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/visubramaniam/raidcom-mcp/actions/workflows/ci.yml)
+
 A community MCP server that turns a request such as *"present four 100 GB volumes from pool 0 to host esx01 on CL1-A and CL2-A"* into validated `raidcom` commands. It is **build-only**: it never connects to a storage system, never runs a command and holds no credentials. It returns command text (or a shell script) for a person to review and run on a host with CCI installed. That makes it safe to host online for anyone to use.
 
 It is an independent project, not an official Hitachi Vantara product.
@@ -14,6 +16,17 @@ It is an independent project, not an official Hitachi Vantara product.
 - **Knows the model limits.** `raidcom_model_limits` gives the LDEV, LUN, pool, serial and port ranges of VSP One Block 24/26/28, VSP 5000 series and VSP E series.
 
 All eight tools are marked read-only. There is no tool that executes anything.
+
+## Use the hosted server
+
+A public instance runs at **`https://raidcom-mcp.onrender.com/mcp`**. It needs no sign-in.
+
+- **Claude (desktop or web):** Settings → Connectors → Add custom connector, paste the URL, leave the advanced (OAuth) settings empty.
+- **Claude Code:** `claude mcp add --transport http raidcom https://raidcom-mcp.onrender.com/mcp`
+- **Microsoft 365 Copilot (Copilot Studio):** your agent → Tools → Add a tool → New tool → Model Context Protocol; paste the URL, authentication **None**.
+- **GitHub Copilot (VS Code):** add `{ "servers": { "raidcom": { "type": "http", "url": "https://raidcom-mcp.onrender.com/mcp" } } }` to `.vscode/mcp.json`, then use Copilot Chat in Agent mode.
+
+To run it yourself instead, see [Setup](#setup).
 
 ## How the catalogue is made
 
@@ -30,25 +43,19 @@ npm run generate-catalog -- cci-reference.txt
 
 - Unknown options, wrong number of values, values outside an option's allowed words, and missing required options (checked against the syntax grammar) are errors with a suggested fix.
 - LDEV IDs, LUN IDs, pool IDs, serial numbers and port names (`CL1-A`, `CL3-B-12`) are checked against the model you give, or the widest range of any model.
-- Values that a shell could misread (`; | & $ \` > < ' "` and so on) are refused, and names with spaces are quoted.
+- Values that a shell could misread (`; | & $ \` > < ' "` and so on) are refused, values containing spaces or `#` are quoted, and values starting with `-` are refused so they can't add options. Global options (`instance`, `pair_type`, `serial`, ...) are checked before anything is written. See [SECURITY.md](SECURITY.md).
+- LDEV IDs can be decimal, `0x` hex or mainframe CU:LDEV (`dd:0f`); recipes and scripts expand ranges such as `100-109` and `dd:00-dd:0f`.
 - Because the manual's syntax lines are occasionally incomplete, `strict: false` turns *missing option* errors into warnings. Unknown options and out-of-range values stay errors.
 - Out of scope: the `pair*` commands (paircreate, pairdisplay, ...) from the Quick Reference, and `raidcom -login`/`-logout` lines as commands of their own (scripts can add them with `login: true`, reading `$RAIDCOM_USER` and `$RAIDCOM_PASSWORD` from the shell).
 
 ## Setup
 
-You need Node.js 22.19 or later.
-
-```
-git clone https://github.com/visubramaniam/raidcom-mcp.git
-cd raidcom-mcp
-npm ci
-npm run build
-```
+You need Node.js 22.19 or later. The server is on npm, so most clients can start it with `npx`:
 
 ### Claude Code
 
 ```
-claude mcp add raidcom -- node /path/to/raidcom-mcp/dist/index.js
+claude mcp add raidcom -- npx -y raidcom-mcp
 ```
 
 ### Claude Desktop
@@ -58,10 +65,21 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "raidcom": { "command": "node", "args": ["/path/to/raidcom-mcp/dist/index.js"] }
+    "raidcom": { "command": "npx", "args": ["-y", "raidcom-mcp"] }
   }
 }
 ```
+
+### From source
+
+```
+git clone https://github.com/visubramaniam/raidcom-mcp.git
+cd raidcom-mcp
+npm ci
+npm run build
+```
+
+Then use `node /path/to/raidcom-mcp/dist/index.js` as the command in the examples above.
 
 ### Claude Desktop, standalone packages
 
@@ -82,7 +100,9 @@ RAIDCOM_TRANSPORT=http RAIDCOM_HTTP_HOST=0.0.0.0 RAIDCOM_HTTP_TOKEN=$(openssl ra
 RAIDCOM_HTTP_BEHIND_TLS_PROXY=true RAIDCOM_HTTP_ALLOWED_HOSTS=raidcom.example.com node dist/index.js
 ```
 
-The endpoint is `/mcp` (stateless Streamable HTTP); `/healthz` reports liveness. See [INSTALL.md](INSTALL.md) and [README.docker.md](README.docker.md).
+The endpoint is `/mcp` (stateless Streamable HTTP). `/healthz` reports the version and, behind a proxy, the address the server takes as the caller's, to check the proxy settings.
+
+Clients that add servers as connectors (Claude, Microsoft 365 Copilot) can't send a fixed bearer token: they connect without authentication or through OAuth, which this server doesn't implement. For them, run without a token and with `RAIDCOM_HTTP_OPEN=true`, as the public instance does. Behind Cloudflare (Render, for example), set `RAIDCOM_HTTP_CLIENT_IP_HEADER=cf-connecting-ip` so the rate limits apply per user. See [INSTALL.md](INSTALL.md) and [README.docker.md](README.docker.md).
 
 ## Configuration
 
@@ -103,13 +123,15 @@ The endpoint is `/mcp` (stateless Streamable HTTP); `/healthz` reports liveness.
 | `RAIDCOM_HTTP_TRUST_PROXY` | `false` | Take the client address from `X-Forwarded-For`: `true` for one proxy in front, or the number of proxies (see [INSTALL.md](INSTALL.md#run-over-http)) |
 | `RAIDCOM_CATALOG`, `RAIDCOM_LIMITS`, `RAIDCOM_RECIPES`, `RAIDCOM_EXAMPLES` | bundled | Use another spec file (an empty `RAIDCOM_EXAMPLES` turns the example questions off) |
 
+Values are trimmed, and true/false settings accept any case; any other value for them stops the server with a message. At startup the server warns about `RAIDCOM_` variables it doesn't recognise (a misspelt name, or one with a stray space), and over HTTP logs one line with its effective settings.
+
 ## Tests
 
 ```
 npm test
 ```
 
-runs the unit tests (`tests/unit`) and the search evaluation (`tests/search-eval.mjs`: 40 tuning and 30 held-out requests, each with a minimum top-1 and top-3 score that may only go up).
+runs the unit tests (`tests/unit`) and the search evaluation (`tests/search-eval.mjs`: 40 tuning and 30 held-out requests, each with a minimum top-1 and top-3 score that may only go up, and a check that results rated high-confidence are right at least 85% of the time). `npm run package` builds the release packages and `npm run smoke` tests the npm package as installed.
 
 ## Contributing
 

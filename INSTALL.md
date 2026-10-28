@@ -4,10 +4,11 @@ raidcom-mcp only builds command text. It needs no access to a storage system, no
 
 ## Choose an install method
 
-Every release on GitHub has these files, with `SHA256SUMS` to check them:
+The quickest way needs no install at all: connect your client to the public instance at `https://raidcom-mcp.onrender.com/mcp` (see [Use the hosted server](README.md#use-the-hosted-server)). To run it yourself, every release on GitHub has these files, with `SHA256SUMS` to check them:
 
 | You use | Install with | Needs Node.js? |
 |---|---|---|
+| Claude (desktop or web), Microsoft 365 Copilot, GitHub Copilot | the [hosted server](README.md#use-the-hosted-server), as a connector | No |
 | Claude Desktop | the [`.mcpb` extension](#claude-desktop-extension-mcpb) | No (Claude Desktop brings its own) |
 | Claude Code | the [plugin](#claude-code-plugin) | Yes, 22.19 or later |
 | Any MCP client, no Node.js installed | a [standalone package](#standalone-package) | No |
@@ -78,9 +79,17 @@ See [README.plugin.md](README.plugin.md).
 
 ## From the npm package
 
+Most MCP clients can start it with `npx`, which downloads the package on first use:
+
+```bash
+npx -y raidcom-mcp   # MCP over stdio
+```
+
+Or install it once:
+
 ```bash
 npm install -g raidcom-mcp
-raidcom-mcp          # MCP over stdio
+raidcom-mcp
 ```
 
 Requires Node.js 22.19 or later (`node --version`).
@@ -98,11 +107,15 @@ npm test
 
 ## Connect it to Claude
 
+The examples use the npm package. For a source checkout, use `node /absolute/path/to/raidcom-mcp/dist/index.js` instead of `npx -y raidcom-mcp`; for a standalone package, use the launcher or `runtime/node dist/index.js` from the package folder.
+
 ### Claude Code
 
 ```
-claude mcp add raidcom -- node /absolute/path/to/raidcom-mcp/dist/index.js
+claude mcp add raidcom -- npx -y raidcom-mcp
 ```
+
+Or connect to a server running over HTTP: `claude mcp add --transport http raidcom https://raidcom-mcp.onrender.com/mcp`.
 
 ### Claude Desktop
 
@@ -111,16 +124,20 @@ Add this to `claude_desktop_config.json` (Settings → Developer → Edit config
 ```json
 {
   "mcpServers": {
-    "raidcom": { "command": "node", "args": ["/absolute/path/to/raidcom-mcp/dist/index.js"] }
+    "raidcom": { "command": "npx", "args": ["-y", "raidcom-mcp"] }
   }
 }
 ```
 
+Or install the [`.mcpb` extension](#claude-desktop-extension-mcpb), or add a server running over HTTP as a custom connector (Settings → Connectors → Add custom connector).
+
 ### Other MCP clients
 
-Any client that starts a stdio server can run `node dist/index.js`. Clients that speak Streamable HTTP can use the hosted mode below.
+Any client that starts a stdio server can run `npx -y raidcom-mcp`. Clients that speak Streamable HTTP (GitHub Copilot in VS Code, Copilot Studio) can connect to a server running over HTTP; see [Use the hosted server](README.md#use-the-hosted-server) for their steps.
 
 ## Docker
+
+Each release pushes a multi-arch image to `ghcr.io/visubramaniam/raidcom-mcp` (and Docker Hub, when configured). To build it yourself:
 
 ```
 docker build -t raidcom-mcp .
@@ -140,19 +157,41 @@ node dist/index.js
 
 The transport is stateless: every request is independent, so any number of instances can sit behind a load balancer. Clients send `Authorization: Bearer <token>`.
 
+Clients that add servers as connectors (Claude, Microsoft 365 Copilot) can't send a fixed token: they connect without authentication or through OAuth, which this server doesn't implement. For them, leave out the token and set `RAIDCOM_HTTP_OPEN=true`.
+
 Which settings are required depends on where it listens:
 
 - **Loopback only** (the default `127.0.0.1`): a token, or `RAIDCOM_HTTP_OPEN=true`.
 - **Reachable by other machines**: also TLS. Either give the server a certificate (`RAIDCOM_HTTP_TLS_CERT`, `RAIDCOM_HTTP_TLS_KEY`) or put it behind a reverse proxy or load balancer that ends TLS and set `RAIDCOM_HTTP_BEHIND_TLS_PROXY=true`.
 - **A public name**: list it in `RAIDCOM_HTTP_ALLOWED_HOSTS` (for example `raidcom.example.com`), or requests are refused with 403 to defend against DNS rebinding.
-- **Behind a proxy**: set `RAIDCOM_HTTP_TRUST_PROXY` to the number of proxies in front of the server (`true` means one), so the rate limits apply per user. Each proxy adds an entry to `X-Forwarded-For`; the server takes the entry that many places from the right, and ignores entries further left, which the client could have written. Too low a number makes every user look like the same proxy (they then share one rate limit); too high lets a client choose its own address. To check the number, open `/healthz`: behind proxies it shows `client`, which should be your own public address (compare with `curl https://ifconfig.me`). Hosting platforms often have more than one proxy, and some put a CDN in front whose own proxies vary in number. If the address `/healthz` shows never matches yours, look at the `forwarding` part of the same response: it lists the forwarding headers the server received (set `RAIDCOM_HTTP_DEBUG_CLIENT=false` to leave it out). Behind Cloudflare (Render, for example) use `RAIDCOM_HTTP_CLIENT_IP_HEADER=cf-connecting-ip` instead of counting proxies; Cloudflare overwrites that header on every request, so a client can't set it.
+- **Behind a proxy**: tell the server where to find the client's address, so the rate limits apply per user rather than per proxy. Use one of:
+  - `RAIDCOM_HTTP_CLIENT_IP_HEADER`: a header the proxy sets to the client's address and overwrites on every request. Behind Cloudflare (Render, for example) that's `cf-connecting-ip`. This is the most reliable choice when your proxy has such a header.
+  - `RAIDCOM_HTTP_TRUST_PROXY`: the number of proxies in front of the server (`true` means one). Each proxy adds an entry to `X-Forwarded-For`; the server takes the entry that many places from the right and ignores entries further left, which the client could have written. Too low a number makes every user look like the same proxy; too high lets a client choose its own address. Platforms with a CDN in front may not have a fixed number.
 
-A public service that anyone may use can run with `RAIDCOM_HTTP_OPEN=true`: the server holds no secrets and cannot reach any array, so the risk is limited to load, which the rate limit and the 256 KB body limit bound.
+  To check, open `/healthz`. Behind a proxy it shows `client`, which should be your own public address (compare with `curl https://ifconfig.me`), and `forwarding`, the forwarding headers the server received. Set `RAIDCOM_HTTP_DEBUG_CLIENT=false` to leave `forwarding` out once the settings are right. The startup log also has a line starting `[raidcom-mcp] http:` that says where the client address comes from.
+
+A public service that anyone may use can run with `RAIDCOM_HTTP_OPEN=true`: the server holds no secrets and cannot reach any array, so the risk is limited to load. The rate limit, the limit of 8 requests in progress per client, the request timeouts and the 256 KB body limit bound it.
+
+### Hosting on Render
+
+The public instance runs on Render as a Docker web service built from this repository. Its settings:
+
+| Variable | Value |
+|---|---|
+| `RAIDCOM_TRANSPORT` | `http` |
+| `RAIDCOM_HTTP_HOST` | `0.0.0.0` |
+| `RAIDCOM_HTTP_PORT` | `10000` (Render's default port) |
+| `RAIDCOM_HTTP_OPEN` | `true` |
+| `RAIDCOM_HTTP_BEHIND_TLS_PROXY` | `true` |
+| `RAIDCOM_HTTP_ALLOWED_HOSTS` | `raidcom-mcp.onrender.com` (or `*`) |
+| `RAIDCOM_HTTP_CLIENT_IP_HEADER` | `cf-connecting-ip` |
+
+Set them in one place: either on the service's own **Environment** page, or in an environment group linked to the service. A variable set on the service itself overrides the same name in a linked group, so a value edited in the group can silently have no effect. If a change doesn't seem to apply, check the `[raidcom-mcp] http:` line in the deploy log.
 
 ### Check that it works
 
 ```
-curl http://127.0.0.1:8361/healthz
+curl http://127.0.0.1:8361/healthz      # {"status":"ok","version":"..."}
 curl -s http://127.0.0.1:8361/mcp -H "Authorization: Bearer $RAIDCOM_HTTP_TOKEN" \
   -H "content-type: application/json" -H "accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
@@ -166,4 +205,12 @@ raidcom-mcp does not run them. On a host with CCI installed and a running HORCM 
 
 ## Upgrading and uninstalling
 
-`git pull && npm ci && npm test`. To uninstall, remove the MCP entry from your client and delete the folder.
+| Installed with | Upgrade | Uninstall |
+|---|---|---|
+| Hosted server | Nothing to do | Remove the connector from your client |
+| `npx` | Runs the latest version on each start (clear the npx cache to force it) | Remove the MCP entry from your client |
+| `npm install -g` | `npm install -g raidcom-mcp@latest` | `npm uninstall -g raidcom-mcp` |
+| `.mcpb` extension | Install the new release's `.mcpb` | Settings → Extensions |
+| Claude Code plugin | `claude plugin update raidcom-community@raidcom-community` | `claude plugin uninstall raidcom-community@raidcom-community` |
+| Standalone package | Unpack the new release next to the old one and update the path | Delete the folder |
+| Source | `git pull && npm ci && npm test` | Delete the folder |

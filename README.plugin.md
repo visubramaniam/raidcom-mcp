@@ -11,7 +11,7 @@ It is **build-only**. It needs no credentials and no access to a storage system,
 | Where | Works? |
 |---|---|
 | **Claude Code**: terminal, IDE extensions, and the desktop app's Code tab | Yes |
-| **Claude chat** (claude.ai, desktop and mobile chat) | No: chat doesn't run plugins' local servers. Use the hosted HTTP server instead, if one is available to you ([INSTALL.md](INSTALL.md#run-over-http)) |
+| **Claude chat** (claude.ai, desktop and mobile chat) | No: chat doesn't run plugins' local servers. Add the hosted server as a custom connector instead: `https://raidcom-mcp.onrender.com/mcp` ([details](README.md#use-the-hosted-server)) |
 
 ## Install
 
@@ -28,7 +28,7 @@ claude plugin marketplace add visubramaniam/raidcom-mcp
 claude plugin install raidcom-community@raidcom-community
 ```
 
-Claude Code installs the server from the plugin's `package.json` (pinned to an exact version of the `raidcom-mcp` npm package, and to a lockfile with integrity hashes once the release workflow has added it). There are no settings to fill in.
+Claude Code installs the server from the plugin's lockfile: the `raidcom-mcp` npm package and its dependencies, each pinned to an exact version and checked against an integrity hash. No install scripts run, and there are no settings to fill in.
 
 ## Use
 
@@ -49,7 +49,7 @@ claude plugin disable raidcom-community@raidcom-community
 claude plugin uninstall raidcom-community@raidcom-community
 ```
 
-Each plugin version installs a matching `raidcom-mcp` version; [CHANGELOG.md](CHANGELOG.md) lists what changed.
+Each plugin version installs the matching `raidcom-mcp` version. The plugin moves to each new server release shortly after it's on npm (an automated pull request), and its own releases are tagged `plugin-v<version>`. [CHANGELOG.md](CHANGELOG.md) lists what changed.
 
 ## Privacy
 

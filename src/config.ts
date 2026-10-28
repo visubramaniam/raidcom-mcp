@@ -32,18 +32,31 @@ export interface ServerConfig {
   examplesPath: string;
 }
 
+/** The settings read from the environment, apart from the token, which is read on its own (see loadHttpConfig). */
+const SETTINGS = [
+  "RAIDCOM_CATALOG", "RAIDCOM_LIMITS", "RAIDCOM_RECIPES", "RAIDCOM_EXAMPLES", "RAIDCOM_TRANSPORT",
+  "RAIDCOM_HTTP_HOST", "RAIDCOM_HTTP_PORT", "RAIDCOM_HTTP_OPEN", "RAIDCOM_HTTP_TLS_CERT", "RAIDCOM_HTTP_TLS_KEY",
+  "RAIDCOM_HTTP_BEHIND_TLS_PROXY", "RAIDCOM_HTTP_ALLOWED_HOSTS", "RAIDCOM_HTTP_ALLOWED_ORIGINS", "RAIDCOM_HTTP_RATE_LIMIT",
+  "RAIDCOM_HTTP_TRUST_PROXY", "RAIDCOM_HTTP_CLIENT_IP_HEADER", "RAIDCOM_HTTP_DEBUG_CLIENT",
+] as const;
+
 /**
- * The environment with surrounding spaces and line breaks removed from every RAIDCOM_ value. Hosting dashboards
- * often use multi-line boxes for values, where a stray space or newline is easy to add and impossible to see.
+ * The settings with surrounding spaces and line breaks removed. Hosting dashboards often use multi-line boxes for
+ * values, where a stray space or newline is easy to add and impossible to see. Only the names above are copied, so
+ * the token (and nothing else from the environment) can end up in a message about a setting.
  */
-function tidy(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const out: NodeJS.ProcessEnv = { ...env };
-  for (const [k, v] of Object.entries(env)) if (k.startsWith("RAIDCOM_") && typeof v === "string") out[k] = v.trim();
+function tidy(env: NodeJS.ProcessEnv): Partial<Record<(typeof SETTINGS)[number], string>> {
+  const out: Partial<Record<(typeof SETTINGS)[number], string>> = {};
+  for (const k of SETTINGS) {
+    const v = env[k];
+    if (typeof v === "string") out[k] = v.trim();
+  }
   return out;
 }
+type Settings = ReturnType<typeof tidy>;
 
 /** A true/false setting: true or false in any case; unset or empty is false. Anything else stops the server, so a typo can't quietly turn a setting off. */
-function bool(env: NodeJS.ProcessEnv, name: string): boolean {
+function bool(env: Settings, name: (typeof SETTINGS)[number]): boolean {
   const v = (env[name] ?? "").toLowerCase();
   if (v === "" || v === "false") return false;
   if (v === "true") return true;
@@ -119,7 +132,7 @@ export function isLoopback(host: string): boolean {
 }
 
 /** Reads the TLS certificate and key, checking that they are valid PEM and belong together. */
-function loadTls(env: NodeJS.ProcessEnv): HttpConfig["tls"] {
+function loadTls(env: Settings): HttpConfig["tls"] {
   const certPath = env.RAIDCOM_HTTP_TLS_CERT;
   const keyPath = env.RAIDCOM_HTTP_TLS_KEY;
   if (!certPath && !keyPath) return undefined;
@@ -153,7 +166,8 @@ export function loadHttpConfig(rawEnv = process.env): HttpConfig | undefined {
   const host = env.RAIDCOM_HTTP_HOST || "127.0.0.1";
   const port = Number(env.RAIDCOM_HTTP_PORT ?? 8361);
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error(`[raidcom-mcp] RAIDCOM_HTTP_PORT must be a port number, not "${env.RAIDCOM_HTTP_PORT}"`);
-  const token = env.RAIDCOM_HTTP_TOKEN ?? "";
+  // read on its own and never written into a message: see tidy()
+  const token = rawEnv.RAIDCOM_HTTP_TOKEN?.trim() ?? "";
   const open = bool(env, "RAIDCOM_HTTP_OPEN");
   if (token && token.length < MIN_TOKEN_LENGTH) {
     throw new Error(`[raidcom-mcp] RAIDCOM_HTTP_TOKEN must be at least ${MIN_TOKEN_LENGTH} characters. Generate one with: openssl rand -hex 32`);

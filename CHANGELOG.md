@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.8 — 2026-10-28
+
+### Fixed
+
+- **Scripts reset the asynchronous error status before each batch** (#28). The array keeps only the first error of a login session until `raidcom reset command_status` clears it, so `raidcom get command_status` could report an earlier failure and hide the error codes of a new one. Every batch of asynchronous commands now starts with `raidcom reset command_status`, and the notes for single commands say to run it.
+- **Scripts now wait for asynchronous commands before every later step.** Before, a step only waited when its own command was synchronous, so `add ldev` followed by `add lun` (both asynchronous) ran without a `raidcom get command_status` in between, and `add lun` could fail on an LDEV still being created. The same applied to `add ldev` followed by `initialize ldev` in the mainframe pool recipe.
+
 ## 0.1.7 — 2026-10-28
 
 ### Changed

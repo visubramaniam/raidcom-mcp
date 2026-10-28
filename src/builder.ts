@@ -434,7 +434,7 @@ export function build(catalog: Catalog, req: BuildRequest): BuildResult {
 
   const readOnly = isReadOnly(cmd);
   const destructive = isDestructive(cmd);
-  if (cmd.async) notes.push("Runs asynchronously: confirm it finished with `raidcom get command_status` before relying on the result (add -request_id auto where the command accepts it).");
+  if (cmd.async) notes.push("Runs asynchronously: run `raidcom reset command_status` before it, so old errors are cleared, and `raidcom get command_status` after it to confirm it finished (add -request_id auto where the command accepts it).");
   if (destructive) notes.push("This command removes configuration or data. Check the target IDs before running it.");
   if (!readOnly && !g.checkmode) notes.push("Use global.checkmode=precheck to have raidcom check the command without changing the array.");
   if (!readOnly) notes.push("Changing commands should run with the resource group locked (raidcom lock resource) when other users manage the array.");

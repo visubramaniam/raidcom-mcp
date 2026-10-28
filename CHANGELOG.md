@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.1.5 — 2026-10-28
+
+### Added
+
+- **Startup diagnostics.** The server warns about any `RAIDCOM_` variable it doesn't recognise, quoting its name so stray spaces show and suggesting the closest real setting; such a variable used to be ignored without a word. Over HTTP it also logs one line describing how it finds the client address, the rate limit, allowed hosts, TLS and the debug setting. Neither ever includes a value or the token.
+
+### Changed
+
+- **`RAIDCOM_HTTP_DEBUG_CLIENT` is on by default**: `/healthz` shows the forwarding headers of the caller's own request, which is what's needed to choose the proxy settings. Set it to `false` to turn it off.
+
 ## 0.1.4 — 2026-10-28
 
 ### Fixed

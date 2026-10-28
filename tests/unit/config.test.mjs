@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadHttpConfig, loadServerConfig, isLoopback } from "../../dist/config.js";
+import { loadHttpConfig, loadServerConfig, isLoopback, unknownSettings, describeHttp } from "../../dist/config.js";
 
 const TOKEN = "a".repeat(40);
 
@@ -54,6 +54,8 @@ test("values are trimmed and true/false settings ignore case; anything else is a
   assert.equal(c.trustProxy, 1);
   assert.throws(() => loadHttpConfig({ ...base, RAIDCOM_HTTP_DEBUG_CLIENT: "yes" }), /must be true or false/);
   assert.equal(loadHttpConfig({ ...base, RAIDCOM_HTTP_DEBUG_CLIENT: "FALSE" }).debugClient, false);
+  assert.equal(loadHttpConfig(base).debugClient, true, "on unless turned off");
+  assert.equal(loadHttpConfig({ ...base, RAIDCOM_HTTP_DEBUG_CLIENT: " " }).debugClient, true);
 });
 
 test("isLoopback", () => {
@@ -66,4 +68,21 @@ test("bundled spec paths are the default and can be overridden", () => {
   assert.match(d.catalogPath, /spec[\\/]raidcom-catalog\.json$/);
   assert.equal(loadServerConfig({ RAIDCOM_CATALOG: "/x.json" }).catalogPath, "/x.json");
   assert.equal(loadServerConfig({ RAIDCOM_EXAMPLES: "" }).examplesPath, "");
+});
+
+test("unknown or mistyped RAIDCOM_ settings are reported by name, never with their value", () => {
+  const w = unknownSettings({ "RAIDCOM_HTTP_DEBUG_CLIENT ": "true", RAIDCOM_HTTP_DEBUG_CLlENT: "true", raidcom_http_open: "true", RAIDCOM_HTTP_OPEN: "true", RAIDCOM_HTTP_TOKEN: "s3cret-s3cret", PATH: "/bin", RAIDCOM_SOMETHING_ELSE_ENTIRELY: "x" });
+  assert.equal(w.length, 4, w.join("\n"));
+  assert.match(w[0], /"RAIDCOM_HTTP_DEBUG_CLIENT ".*differs from RAIDCOM_HTTP_DEBUG_CLIENT only in spaces or case/);
+  assert.match(w[1], /Did you mean RAIDCOM_HTTP_DEBUG_CLIENT/);
+  assert.match(w[2], /only in spaces or case/);
+  assert.doesNotMatch(w.join(), /s3cret|true/);
+});
+
+test("the HTTP summary line describes the proxy settings and never the token", () => {
+  const c = loadHttpConfig({ RAIDCOM_TRANSPORT: "http", RAIDCOM_HTTP_TOKEN: "t".repeat(40), RAIDCOM_HTTP_CLIENT_IP_HEADER: "cf-connecting-ip", RAIDCOM_HTTP_DEBUG_CLIENT: "true" });
+  const line = describeHttp(c);
+  assert.match(line, /client address from the cf-connecting-ip header/);
+  assert.match(line, /debug client on/);
+  assert.doesNotMatch(line, /tttt/);
 });

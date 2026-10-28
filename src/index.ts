@@ -20,7 +20,7 @@ import { build, type BuildResult, type GlobalOptions, type OptionValue } from ".
 import { parseCommandLine } from "./cmdline.js";
 import { CommandIndex } from "./search.js";
 import { buildRecipe, buildScript, type Recipe, type Step } from "./recipes.js";
-import { VERSION, bundled, loadHttpConfig, loadJson, loadOptionalJson, loadServerConfig } from "./config.js";
+import { VERSION, bundled, describeHttp, loadHttpConfig, loadJson, loadOptionalJson, loadServerConfig, unknownSettings } from "./config.js";
 import { tools } from "./tools.js";
 
 type Json = any;
@@ -36,6 +36,7 @@ function orExit<T>(load: () => T): T {
   }
 }
 
+for (const w of unknownSettings()) console.error(w);
 const cfg = loadServerConfig();
 const httpCfg = orExit(() => loadHttpConfig());
 const catalog = orExit(() => new Catalog(cfg.catalogPath, cfg.limitsPath));
@@ -325,3 +326,4 @@ if (httpCfg) {
   await createServer().connect(new StdioServerTransport());
 }
 console.error(`[raidcom-mcp] ready: ${catalog.commands.size} commands, ${Object.keys(recipes).length} recipes, build-only${listening}`);
+if (httpCfg) console.error(`[raidcom-mcp] http: ${describeHttp(httpCfg)}`);

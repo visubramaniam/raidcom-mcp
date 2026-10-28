@@ -139,7 +139,7 @@ runs the unit tests (`tests/unit`) and the search evaluation (`tests/search-eval
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Security problems: [SECURITY.md](SECURITY.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Security problems: [SECURITY.md](SECURITY.md). Privacy: [PRIVACY.md](PRIVACY.md).
 
 ## License
 

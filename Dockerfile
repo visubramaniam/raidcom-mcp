@@ -5,7 +5,7 @@
 # The base image follows the Node.js LTS line (24); Dependabot updates its digest, major moves are made by hand.
 
 # ---- build: compile TypeScript ----
-FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS build
+FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -14,13 +14,13 @@ COPY src ./src
 RUN npx tsc
 
 # ---- production dependencies ----
-FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS deps
+FROM --platform=$BUILDPLATFORM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 # ---- runtime ----
-FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
+FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85
 LABEL org.opencontainers.image.title="raidcom-mcp" \
       org.opencontainers.image.description="MCP server that builds and validates Hitachi raidcom commands (build-only; community project, not an official Hitachi Vantara product)" \
       org.opencontainers.image.source="https://github.com/visubramaniam/raidcom-mcp" \
